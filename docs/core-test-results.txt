@@ -1,0 +1,12 @@
+FoodLens core-test verification — 17 September 2026
+
+Command:
+python -m unittest scanner.tests.test_rules scanner.tests.test_images scanner.tests.test_provider -v
+
+----------------------------------------------------------------------
+Ran 69 tests in 0.490s
+
+OK
+
+These tests include mocked provider responses, not a live Gemini request.
+Django integration tests are not included in this count.

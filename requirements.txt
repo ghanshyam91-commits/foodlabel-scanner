@@ -1,0 +1,8 @@
+Django>=5.2.17,<5.3
+Pillow>=11.3,<13
+pydantic>=2.10,<3
+httpx>=0.28,<1
+whitenoise>=6.8,<7
+gunicorn>=23,<27
+python-dotenv>=1.0,<2
+redis>=5,<9

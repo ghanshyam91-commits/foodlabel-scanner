@@ -1,0 +1,12 @@
+[
+  {
+    "viewport": "390x844",
+    "status": "PASS",
+    "checks": "no horizontal overflow; four demo verdicts; cross-contact separation; save/reopen history; vegan preference; tab navigation; upload preview; consent gate; no-key error; remove photo; no JS runtime errors"
+  },
+  {
+    "viewport": "1440x1000",
+    "status": "PASS",
+    "checks": "no horizontal overflow; four demo verdicts; cross-contact separation; save/reopen history; vegan preference; tab navigation; upload preview; consent gate; no-key error; remove photo; no JS runtime errors"
+  }
+]

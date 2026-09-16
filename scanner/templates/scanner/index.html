@@ -1,0 +1,84 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f7f2"><meta name="description" content="Read Dutch food labels in English. Understand ingredients and check your dietary preferences.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>FoodLens — Know what’s inside.</title>
+  <link rel="icon" href="{% static 'scanner/icon.svg' %}" type="image/svg+xml">
+  <link rel="manifest" href="{% static 'scanner/manifest.webmanifest' %}">
+  <link rel="stylesheet" href="{% static 'scanner/app.css' %}">
+  <script defer src="{% static 'scanner/app.js' %}"></script>
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+  <header class="topbar"><a class="brand" href="/" aria-label="FoodLens home">
+    <svg class="brand-icon" viewBox="0 0 40 40" fill="none" aria-hidden="true"><rect x="1" y="1" width="38" height="38" rx="12" fill="currentColor"/><path d="M12 25c-1-9 4-13 16-14 1 12-4 17-13 15m0 0 10-11" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <span>food<span class="brand-light">lens</span><span class="beta">BETA</span></span></a>
+    <div class="header-right"><span class="language">NL <span aria-hidden="true">→</span> EN</span><button class="icon-button" id="privacy-open" aria-label="Privacy and how it works">ⓘ</button></div>
+  </header>
+  <main id="main">
+    <section id="scan-page" class="page">
+      <div class="hero"><div class="eyebrow"><span class="tiny-dot"></span> YOUR GROCERY TRANSLATOR</div>
+        <h1>Know what’s inside.<br><span>Dutch labels. In English.</span></h1>
+        <p>Photograph a Dutch ingredients label.<br class="mobile-break"> Get the English translation and a clearer dietary check.</p>
+      </div>
+      <div id="configuration-notice" class="notice" hidden></div>
+      <div class="workspace">
+        <section class="scan-card" aria-labelledby="scan-title">
+          <div class="card-top"><div><div class="section-kicker">01 / CAPTURE</div><h2 id="scan-title">What’s in your basket?</h2></div><span class="round-icon" aria-hidden="true">↗</span></div>
+          <div class="viewfinder" id="viewfinder">
+            <div class="camera-illustration" id="camera-illustration" aria-hidden="true"><span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+              <div class="label-paper"><span class="paper-top">INGREDIËNTEN</span><span class="paper-line long"></span><span class="paper-line"></span><span class="paper-line long"></span><span class="paper-line short"></span><div class="paper-leaf">↗</div></div>
+            </div>
+            <img id="preview" alt="Your selected label photo" hidden>
+            <div id="capture-hint"><strong>The ingredients side, please.</strong><p>Keep the whole list sharp and in frame.</p></div>
+            <button class="text-button" id="remove-photo" hidden>Remove photo</button>
+          </div>
+          <div class="capture-actions"><button id="camera-button" class="button primary" type="button"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg> Take a photo</button><button class="button secondary" id="upload-button" type="button">↑ Upload photo</button></div>
+          <input id="camera-input" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
+          <input id="upload-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+          <p class="file-hint">JPEG, PNG or WebP · up to 8 MB</p>
+          <div id="scan-options" hidden><label class="consent"><input id="consent" type="checkbox"><span>Send this label photo to Google’s Gemini API for reading and translation. Avoid including faces or personal details.</span></label>
+            <button class="button primary full" id="analyze-button" type="button">Read my label <span aria-hidden="true">→</span></button></div>
+          <div id="progress" class="progress" role="status" hidden><span class="spinner"></span><div><strong>Reading your label…</strong><span>Translating the text, then checking the ingredients.</span></div></div>
+          <p id="error" class="error" role="alert" hidden></p>
+        </section>
+        <aside class="side-stack">
+          <section class="preference-card" aria-labelledby="preference-title"><div class="section-kicker">02 / YOUR PREFERENCE</div><h2 id="preference-title">Your food. Your choice.</h2><p>Applied to your next scan. Every result shows what it was checked for.</p>
+            <fieldset class="preference-options"><legend class="sr-only">Dietary preference</legend>
+              <label class="preference-option"><input type="radio" name="preference" value="vegetarian_no_eggs" checked><span><strong>Vegetarian, without eggs</strong><small>Dairy and honey are okay</small></span></label>
+              <label class="preference-option"><input type="radio" name="preference" value="vegetarian_with_eggs"><span><strong>Vegetarian, with eggs</strong><small>Dairy, eggs and honey are okay</small></span></label>
+              <label class="preference-option"><input type="radio" name="preference" value="vegan"><span><strong>Vegan</strong><small>No animal-derived ingredients</small></span></label>
+            </fieldset>
+          </section>
+          <section class="honesty-card"><span class="honesty-icon" aria-hidden="true">?</span><div><h3>Not sure? We’ll say so.</h3><p>Missing text or an unknown ingredient gets an “Uncertain” result, not a confident guess.</p></div></section>
+        </aside>
+      </div>
+      <section id="result" class="result" aria-labelledby="result-title" tabindex="-1" hidden>
+        <div class="result-heading"><div><div class="section-kicker" id="result-source">YOUR LABEL, EXPLAINED</div><h2 id="product-name"></h2></div><button class="button secondary small" id="save-result">Save scan</button></div>
+        <div class="verdict-card" id="verdict-card"><div class="verdict-top"><span class="verdict-dot"></span><span id="result-basis"></span></div><h3 id="result-title"></h3><p id="result-explanation"></p><div class="preference-match" id="preference-match"></div></div>
+        <div id="issues-box" class="issues-box" hidden><h3>What needs checking</h3><ul id="issues-list"></ul></div>
+        <div class="result-grid"><section class="result-panel"><div class="panel-heading"><h3>Ingredients, translated</h3><span class="language small-language">NL → EN</span></div><div id="ingredients-list"></div></section>
+          <div class="result-column"><section class="result-panel allergens"><h3>Allergen statements</h3><div class="allergen-line"><strong>Contains</strong><p id="contains"></p></div><div class="allergen-line"><strong>May contain</strong><p id="may-contain"></p></div><p class="small-note">A precautionary warning is not an ingredient. This app does not determine whether food is allergy-safe.</p></section>
+            <section class="result-panel"><h3>Full label translation</h3><p class="translated-label" id="translation"></p><details><summary>See original text</summary><p class="translated-label" id="original"></p></details><div id="claims-wrap" hidden><h4>Visible packaging claims</h4><p id="claims"></p><p class="small-note">Transcribed only; certification has not been verified.</p></div></section></div>
+        </div>
+        <details class="limitations"><summary>Limits of this result</summary><ul id="limitations-list"></ul><p class="small-note" id="ruleset"></p></details>
+      </section>
+      <section class="examples" aria-labelledby="examples-title"><div class="examples-heading"><h2 id="examples-title">Take a look before you scan.</h2><span>Fictional examples · no photo needed</span></div><div class="example-grid">
+        <button class="example" data-example="oats"><span class="example-art oat" aria-hidden="true">01</span><span><strong>Oat drink</strong><small>A plant-based ingredient list</small></span><span class="example-arrow" aria-hidden="true">↗</span></button>
+        <button class="example" data-example="chocolate"><span class="example-art chocolate" aria-hidden="true">02</span><span><strong>Chocolate drink</strong><small>Spot the milk</small></span><span class="example-arrow" aria-hidden="true">↗</span></button>
+        <button class="example" data-example="sweets"><span class="example-art sweets" aria-hidden="true">03</span><span><strong>Fruit sweets</strong><small>Why gelatin matters</small></span><span class="example-arrow" aria-hidden="true">↗</span></button>
+        <button class="example" data-example="bread"><span class="example-art bread" aria-hidden="true">04</span><span><strong>A loaf of bread</strong><small>When the source is unclear</small></span><span class="example-arrow" aria-hidden="true">↗</span></button>
+      </div></section>
+    </section>
+    <section id="history-page" class="page" hidden><div class="hero"><div class="eyebrow">ON THIS DEVICE ONLY</div><h1>Your saved <span>label checks.</span></h1><p>Saved only when you choose. Photos are never included.</p></div><div id="history-list"></div><button class="button secondary" id="clear-history" hidden>Delete saved scans</button></section>
+    <section id="about-page" class="page" hidden><div class="hero"><div class="eyebrow">A LITTLE CLARITY</div><h1>Read the label.<br><span>Keep the final say.</span></h1></div><div class="about-card"><h2>How FoodLens works</h2><p>One photo goes to Gemini for text extraction and translation. A separate, conservative ingredient-rule engine checks the original Dutch or English ingredient names. The AI does not choose the dietary verdict.</p><h3>Three dietary categories. One important fourth answer.</h3><p>Vegan-compatible ingredients, vegetarian but not vegan, non-vegetarian ingredient found, or uncertain. An unreadable list, an unfamiliar ingredient or an unresolved source blocks a positive result.</p><h3>Privacy by design</h3><p>The app removes image metadata before forwarding the photo. Photos and results are not saved in the app’s database or application logs. The AI provider processes your photo under its own terms; its retention and use depend on the account and service configuration.</p><p>Saving a scan stores the text result in this browser, not your photo. Anyone using this browser profile may see saved scans. Clear them from the Saved tab. Your dietary setting is stored on this device.</p><h3>Not a certification or allergy checker</h3><p>FoodLens cannot verify processing aids, manufacturing practices, undeclared ingredients or product certifications. AI can misread text. Always compare with the original package. “No allergen statement read” never means “allergen-free.”</p><h3>Built for the first useful version</h3><p>Dutch and English packaging only. One photo per scan. Barcode databases, full on-image translation overlays and recipe recognition are not included in this version.</p><button class="button secondary" id="logout-button" hidden>Lock private-beta access</button></div></section>
+  </main>
+  <footer class="footer"><span>Less guessing. More understanding.</span><span>Label guidance, not a safety guarantee.</span></footer>
+  <nav class="bottom-nav" aria-label="Main navigation"><button data-page="scan" aria-current="page"><span aria-hidden="true">⌗</span>Scan</button><button data-page="history"><span aria-hidden="true">▤</span>Saved</button><button data-page="about"><span aria-hidden="true">ⓘ</span>How it works</button></nav>
+  <dialog id="access-dialog"><form id="access-form"><div class="section-kicker">PRIVATE BETA</div><h2>Welcome to FoodLens.</h2><p>Enter the access code shared by the app owner.</p><label for="access-code">Access code</label><input id="access-code" name="code" type="password" autocomplete="current-password" maxlength="256" required><p id="access-error" class="error" role="alert" hidden></p><button class="button primary full" type="submit">Unlock scanning</button><button class="text-button full" id="access-cancel" type="button">Explore the examples instead</button></form></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+</body>
+</html>
