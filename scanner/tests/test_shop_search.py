@@ -39,6 +39,7 @@ class ShopSearchUnitTests(unittest.TestCase):
             stores[0]['directions_url'],
             'https://www.google.com/maps/dir/?api=1&destination=51.845000%2C5.860000&travelmode=walking',
         )
+        self.assertEqual((stores[0]['latitude'], stores[0]['longitude']), (51.845, 5.86))
         self.assertIn('around:3000,51.840000,5.860000', mock_read.call_args.kwargs['data']['data'])
 
     def test_size_normalisation(self):

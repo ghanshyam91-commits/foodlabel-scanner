@@ -190,6 +190,28 @@
     return link;
   }
 
+  function navigationLink(row, className = '') {
+    const rawLatitude = row.latitude ?? row.lat;
+    const rawLongitude = row.longitude ?? row.lon;
+    const latitude = Number(rawLatitude);
+    const longitude = Number(rawLongitude);
+    const hasCoordinates = rawLatitude != null && rawLatitude !== ''
+      && rawLongitude != null && rawLongitude !== ''
+      && Number.isFinite(latitude) && Number.isFinite(longitude);
+    const isAppleMobile = /iPad|iPhone|iPod/.test(navigator.userAgent)
+      || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    let url = row.directions_url || row.directionsUrl || row.map_url || row.mapUrl || '';
+    if (hasCoordinates && isAppleMobile) {
+      const destination = encodeURIComponent(row.supermarket || row.name || 'Supermarket');
+      url = `https://maps.apple.com/?daddr=${latitude},${longitude}&dirflg=w&q=${destination}`;
+    } else if (hasCoordinates && !url) {
+      url = `https://www.google.com/maps/dir/?api=1&destination=${latitude},${longitude}&travelmode=walking`;
+    }
+    const link = externalLink('Navigate', url, className);
+    link.setAttribute('aria-label', `Navigate to ${row.supermarket || row.name || 'store'}`);
+    return link;
+  }
+
   function productDestination(row, className = '') {
     const url = row.product_url || row.productUrl || row.search_url || row.searchUrl || '';
     const exact = row.product_url_is_exact ?? row.productUrlIsExact;
@@ -385,6 +407,8 @@
         productUrlIsExact: Boolean(row.product_url_is_exact),
         searchUrl: row.search_url,
         distanceKm: row.distance_km,
+        latitude: row.latitude,
+        longitude: row.longitude,
         mapUrl: row.map_url,
         directionsUrl: row.directions_url,
         quantity: 1,
@@ -452,7 +476,7 @@
         ? `${Number(storeItems[0].distanceKm).toFixed(1)} km away · ` : '';
       title.append(text('h3', storeName), text('span', `${distance}${remaining} left · ${storeItems.length} product${storeItems.length === 1 ? '' : 's'}`));
       const directionsUrl = storeItems[0].directionsUrl || storeItems[0].mapUrl;
-      if (directionsUrl) title.append(externalLink('Open directions', directionsUrl, 'store-directions'));
+      if (directionsUrl) title.append(navigationLink(storeItems[0], 'store-directions'));
       identity.append(retailerLogo(code, storeName, 'buy-store-logo'), title);
       const subtotalEur = storeItems.filter((item) => !item.bought)
         .reduce((sum, item) => sum + (Number(item.priceEur) || 0) * Math.max(1, Number(item.quantity) || 1), 0);
@@ -518,6 +542,7 @@
     const locationLabel = row.distance_km == null ? 'Online catalogue' : `${row.distance_km.toFixed(1)} km away`;
     meta.append(text('span', `${locationLabel} · ${row.amount || 'Package size not listed'}`));
     const actions = text('div', '', 'cheapest-actions');
+    if (row.directions_url || row.latitude != null) actions.append(navigationLink(row, 'button navigate-button small'));
     actions.append(productDestination(row, 'button primary small'));
     actions.append(buyActionButton(row, 'button light small'));
     host.append(copy, meta, actions);
@@ -546,6 +571,7 @@
       if (flags.childNodes.length) card.append(flags);
       card.append(text('p', row.dietary_note, 'diet-note'));
       const actions = text('div', '', 'shop-card-actions');
+      if (row.directions_url || row.latitude != null) actions.append(navigationLink(row, 'button navigate-button small'));
       actions.append(productDestination(row, 'button secondary small'));
       actions.append(buyActionButton(row, 'button small'));
       if (row.dietary_status !== 'compatible') {
@@ -592,9 +618,10 @@
     stores.replaceChildren();
     (data.nearby_stores || []).forEach((store) => {
       const label = `${store.name}${store.distance_km == null ? '' : ` · ${store.distance_km.toFixed(1)} km`}`;
-      const chip = externalLink('', store.directions_url || store.map_url, 'nearby-store-chip');
+      const chip = navigationLink(store, 'nearby-store-chip');
+      chip.replaceChildren();
       if (store.code) chip.append(retailerLogo(store.code, store.name, 'nearby-store-logo'));
-      chip.append(text('span', label));
+      chip.append(text('span', label), text('strong', 'Navigate'));
       stores.append(chip);
     });
     const source = $('price-source-note');

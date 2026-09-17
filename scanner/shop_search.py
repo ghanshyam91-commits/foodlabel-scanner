@@ -484,6 +484,7 @@ def nearby_supermarkets(lat: float, lon: float, limit: int = 10,
             continue
         found.append({'name': RETAILERS[code]['name'] if code else name[:80], 'code': code,
                       'distance_km': round(distance_km, 1),
+                      'latitude': round(store_lat, 6), 'longitude': round(store_lon, 6),
                       'map_url': f'https://www.openstreetmap.org/?mlat={store_lat:.6f}&mlon={store_lon:.6f}#map=17/{store_lat:.6f}/{store_lon:.6f}',
                       'directions_url': ('https://www.google.com/maps/dir/?api=1&'
                                          f'destination={store_lat:.6f}%2C{store_lon:.6f}&travelmode=walking')})
@@ -699,6 +700,7 @@ def eur_inr_rate() -> tuple[float | None, str | None]:
 def _fallback_stores(catalogue: list[dict]) -> list[dict]:
     available = {str(store.get('n')) for store in catalogue if store.get('d')}
     return [{'name': RETAILERS[code]['name'], 'code': code, 'distance_km': None,
+             'latitude': None, 'longitude': None,
              'map_url': RETAILERS[code]['home'], 'directions_url': ''}
             for code in RETAILERS if code in available][:10]
 
@@ -746,6 +748,7 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
             row = {'code': code, 'supermarket': RETAILERS[code]['name'],
                    'distance_km': nearby_store.get('distance_km'), 'map_url': nearby_store.get('map_url'),
                    'directions_url': nearby_store.get('directions_url'),
+                   'latitude': nearby_store.get('latitude'), 'longitude': nearby_store.get('longitude'),
                    'logo_url': f'/api/shop-logo/{code}/',
                    'search_url': search_url, 'available': bool(match), 'is_lowest_pack': False,
                    'is_best_value': False}
