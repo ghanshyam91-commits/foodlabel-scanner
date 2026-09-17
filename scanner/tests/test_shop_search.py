@@ -74,7 +74,7 @@ class ShopSearchUnitTests(unittest.TestCase):
             'ah', 'https://www.ah.nl/producten/product/', 'wi1/haverdrink',
             'https://www.ah.nl/zoeken?query=haverdrink')
         self.assertEqual(exact, ('https://www.jumbo.com/producten/vegan-haverdrink', True))
-        self.assertEqual(guarded, ('', False))
+        self.assertEqual(guarded, ('https://www.ah.nl/zoeken?query=haverdrink', False))
 
     def test_logo_proxy_only_allows_catalogue_or_official_hosts(self):
         self.assertEqual(_validated_logo_url('ah', '/assets/ah.svg'), 'https://www.checkjebon.nl/assets/ah.svg')
@@ -127,7 +127,7 @@ class ShopSearchUnitTests(unittest.TestCase):
         self.assertTrue(data['results'][0]['is_lowest_pack'])
         self.assertTrue(data['results'][0]['is_best_value'])
         self.assertEqual(data['results'][0]['price_inr'], 125)
-        self.assertEqual(data['results'][0]['product_url'], '')
+        self.assertEqual(data['results'][0]['product_url'], 'https://www.ah.nl/zoeken?query=haverdrink')
         self.assertFalse(data['results'][0]['product_url_is_exact'])
         self.assertTrue(data['results'][1]['product_url_is_exact'])
         self.assertEqual(data['results'][0]['logo_url'], '/api/shop-logo/ah/')

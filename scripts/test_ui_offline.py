@@ -102,8 +102,8 @@ with sync_playwright() as playwright:
         assert page.locator('.shop-price-card', has_text='ALDI').count() == 0
         assert page.locator('.vegan-confidence').count() == 3
         assert '₹125' in page.locator('#cheapest-result').inner_text()
-        assert page.locator('.shop-price-card', has_text='Jumbo').get_by_role('link', name='View exact product').count() == 1
-        assert page.locator('.shop-price-card', has_text='Albert Heijn').get_by_text('Exact page unavailable').count() == 1
+        assert page.locator('.shop-price-card', has_text='Jumbo').get_by_role('link', name='View', exact=True).count() == 1
+        assert page.locator('.shop-price-card', has_text='Albert Heijn').get_by_role('link', name='Search', exact=True).count() == 1
         assert page.evaluate("localStorage.getItem('foodlens.shop-location.v1')") == 'Nijmegen'
         page.locator('.shop-price-card', has_text='Albert Heijn').get_by_role('button', name='Add to buy list').click()
         page.locator('.shop-price-card', has_text='Jumbo').get_by_role('button', name='Add to buy list').click()
