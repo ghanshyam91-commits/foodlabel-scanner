@@ -55,6 +55,7 @@ class PreferenceTests(TestCase):
         self.assertIn('@keyframes navScanGlow', style)
         self.assertIn('@keyframes selectedNavGlow', style)
         self.assertIn("externalLink('Open directions'", script)
+        self.assertNotIn('Free local mode: Tesseract', script)
         self.assertIn('position: sticky', style)
         self.assertNotIn('id="analyze-button"', html)
         for emoji in ['⚙', '⌂', '▤', '⌗']:
