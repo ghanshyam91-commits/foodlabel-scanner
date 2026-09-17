@@ -1,3 +1,4 @@
+import hmac
 import re
 from authlib.integrations.django_client import OAuth
 from django.conf import settings
@@ -19,7 +20,11 @@ def account(request):
     except (Account.DoesNotExist,TypeError,ValueError):return None
 def unlocked(request):return bool(account(request) and request.session.get('pin_unlocked'))
 def login_page(request):
-    user=account(request);state='signin' if not user else ('setup' if not user.pin_hash else 'unlock')
+    user=account(request)
+    if not user:
+        state='signin' if settings.GOOGLE_AUTH_CONFIGURED or not settings.TEMPORARY_LOGIN_PIN else 'temporary'
+    else:
+        state='setup' if not user.pin_hash else 'unlock'
     return render(request,'scanner/login.html',{'state':state,'account':user,'oauth_configured':settings.GOOGLE_AUTH_CONFIGURED})
 @require_GET
 def google_start(request):
@@ -52,5 +57,21 @@ def pin_unlock(request):
     except QuotaUnavailable:return JsonResponse({'error':'PIN service is temporarily unavailable.'},status=503)
     if not check_password(request.POST.get('pin',''),user.pin_hash):return JsonResponse({'error':'That PIN did not match.'},status=403)
     request.session['pin_unlocked']=True;request.session.cycle_key();return JsonResponse({'ok':True})
+@require_POST
+def temporary_unlock(request):
+    if settings.GOOGLE_AUTH_CONFIGURED or not settings.TEMPORARY_LOGIN_PIN:
+        return JsonResponse({'error':'Temporary PIN login is not available.'},status=403)
+    try:
+        if not hit('temporary-pin:'+client_id(request),5,600):
+            return JsonResponse({'error':'Too many attempts. Try again in ten minutes.'},status=429)
+    except QuotaUnavailable:
+        return JsonResponse({'error':'PIN service is temporarily unavailable.'},status=503)
+    pin=request.POST.get('pin','')
+    if not re.fullmatch(r'\d{4}',pin) or not hmac.compare_digest(pin,settings.TEMPORARY_LOGIN_PIN):
+        return JsonResponse({'error':'That PIN did not match.'},status=403)
+    user,_=Account.objects.update_or_create(google_sub='temporary-pin-user',
+        defaults={'email':'temporary@foodlens.local','name':'FoodLens user','pin_hash':make_password(pin)})
+    request.session.flush();request.session['account_id']=user.pk;request.session['pin_unlocked']=True
+    return JsonResponse({'ok':True})
 @require_POST
 def sign_out(request):request.session.flush();return JsonResponse({'ok':True})

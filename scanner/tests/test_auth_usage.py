@@ -1,4 +1,5 @@
 from django.test import TestCase, override_settings
+from django.core.cache import cache
 from scanner.models import Account, MonthlyUsage
 
 @override_settings(AUTH_REQUIRED=True,GOOGLE_AUTH_CONFIGURED=True,SESSION_ENGINE='django.contrib.sessions.backends.db')
@@ -20,3 +21,19 @@ class AuthAndUsageTests(TestCase):
     def test_google_pin_replaces_legacy_access_code(self):
         self.signed_in('hash');session=self.client.session;session['pin_unlocked']=True;session.save()
         self.assertFalse(self.client.get('/api/config/').json()['access_required'])
+
+@override_settings(AUTH_REQUIRED=True,GOOGLE_AUTH_CONFIGURED=False,TEMPORARY_LOGIN_PIN='0608',
+    SESSION_ENGINE='django.contrib.sessions.backends.db')
+class TemporaryPinTests(TestCase):
+    def setUp(self):cache.clear()
+    def test_login_page_requests_pin_without_exposing_value(self):
+        body=self.client.get('/').content.decode()
+        self.assertIn('Temporary PIN',body);self.assertNotIn('0608',body)
+    def test_wrong_pin_is_rejected(self):
+        self.assertEqual(self.client.post('/auth/pin/temporary/',{'pin':'1234'}).status_code,403)
+    def test_default_pin_unlocks_app(self):
+        self.assertEqual(self.client.post('/auth/pin/temporary/',{'pin':'0608'}).status_code,200)
+        self.assertContains(self.client.get('/'),'Dutch labels. In English.')
+    @override_settings(GOOGLE_AUTH_CONFIGURED=True)
+    def test_temporary_pin_disabled_when_google_is_ready(self):
+        self.assertEqual(self.client.post('/auth/pin/temporary/',{'pin':'0608'}).status_code,403)

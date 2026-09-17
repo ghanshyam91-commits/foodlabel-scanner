@@ -44,6 +44,7 @@ def config(request):
         'access_required': legacy_access,
         'unlocked': not legacy_access or bool(request.session.get('unlocked')),
         'authenticated': auth.unlocked(request) if settings.AUTH_REQUIRED else True,
+        'auth_required': settings.AUTH_REQUIRED,
         'model': settings.GEMINI_MODEL if settings.GEMINI_API_KEY else 'tesseract-local',
         'scan_provider': 'Gemini Flash-Lite' if settings.GEMINI_API_KEY else 'Private local OCR (free)', 'max_bytes': MAX_BYTES})
 

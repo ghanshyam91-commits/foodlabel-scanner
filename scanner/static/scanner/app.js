@@ -116,7 +116,7 @@
       if(!c.ai_configured){$('configuration-notice').textContent='Preview mode: the app owner must add an AI key to enable photo scanning. The examples below are fictional demonstrations.';$('configuration-notice').hidden=false;}
       else if(c.scan_provider?.startsWith('Private')){$('configuration-notice').textContent='Free local mode: this label is read on the server with Tesseract OCR. Translation coverage is limited, so compare every result with the package.';$('configuration-notice').hidden=false;}
       else if(c.access_required&&!c.unlocked){$('configuration-notice').append(text('span','Private beta. '));const b=text('button','Enter access code','text-button');b.addEventListener('click',()=>$('access-dialog').showModal());$('configuration-notice').append(b);$('configuration-notice').hidden=false;}
-      $('logout-button').hidden=!(c.access_required&&c.unlocked);
+      $('logout-button').hidden=!(c.auth_required&&c.authenticated);
     }catch{showError('Cannot reach the app server. Check your connection and refresh.');}
   }
   $('camera-button').addEventListener('click',()=>$('camera-input').click());$('upload-button').addEventListener('click',()=>$('upload-input').click());
@@ -139,7 +139,7 @@
     catch(err){$('access-error').textContent=err.message;$('access-error').hidden=false;}
   });
   $('access-cancel').addEventListener('click',()=>$('access-dialog').close());
-  $('logout-button').addEventListener('click',async()=>{try{await api('/api/logout/',{method:'POST'});await configure();toast('Private-beta access locked.');}catch(e){toast(e.message);}});
+  $('logout-button').addEventListener('click',async()=>{try{await api('/auth/logout/',{method:'POST'});location.href='/';}catch(e){toast(e.message);}});
   const consentKey='foodlens.consent.gemini.v1';
   let consentGranted=false;
   try{consentGranted=localStorage.getItem(consentKey)==='yes';}catch{}
