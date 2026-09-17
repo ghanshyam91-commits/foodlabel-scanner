@@ -16,3 +16,7 @@ class AuthAndUsageTests(TestCase):
         from datetime import date
         MonthlyUsage.objects.create(account=user,month=date.today().replace(day=1),model_name='gemini-2.5-flash-lite',scans=2,input_tokens=1_000_000,output_tokens=1_000_000)
         data=self.client.get('/api/usage/').json();self.assertEqual(data['scans'],2);self.assertEqual(data['estimated_usd'],0.5)
+    @override_settings(SCANNER_ACCESS_CODE='old-private-beta-code')
+    def test_google_pin_replaces_legacy_access_code(self):
+        self.signed_in('hash');session=self.client.session;session['pin_unlocked']=True;session.save()
+        self.assertFalse(self.client.get('/api/config/').json()['access_required'])

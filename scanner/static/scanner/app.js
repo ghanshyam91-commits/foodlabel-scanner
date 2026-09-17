@@ -2,7 +2,7 @@
 (() => {
   const $ = (id) => document.getElementById(id);
   const names = {non_vegetarian:'Non-vegetarian', vegan:'Vegan', vegetarian_no_eggs:'Vegetarian without eggs', vegetarian_with_eggs:'Vegetarian with eggs'};
-  const state = {file:null, url:null, result:null, config:null, busy:false};
+  const state = {file:null, url:null, result:null, config:null, busy:false,ingredientLanguage:'english'};
   const storageKey = 'foodlens.saved.v1';
   let toastTimer;
   const preference = () => document.querySelector('input[name="preference"]:checked').value;
@@ -47,11 +47,13 @@
     state.result=null;$('result').hidden=true;
   }
   function listInto(id, values) { const host=$(id);host.replaceChildren();values.forEach(v=>host.append(text('li',v))); }
-  function renderResult(data) {
+  function setIngredientLanguage(language){state.ingredientLanguage=language;document.querySelectorAll('[data-ingredients-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ingredientsLang===language)));document.querySelectorAll('.ingredient-english').forEach(e=>e.hidden=language!=='english');document.querySelectorAll('.ingredient-original').forEach(e=>e.hidden=language!=='original');}
+  function flashVerdict(match){const box=$('verdict-flash'),icon=$('verdict-flash-icon'),message=$('verdict-flash-text');box.className='verdict-flash '+match;icon.textContent=match==='yes'?'✓':match==='no'?'×':'?';message.textContent=match==='yes'?'Matches your food preference':match==='no'?"Don't eat for your selected preference":'Check the package before deciding';box.hidden=false;box.getAnimations().forEach(a=>a.cancel());void box.offsetWidth;box.classList.add('play');if(match==='no'&&navigator.vibrate)navigator.vibrate([160,80,220]);setTimeout(()=>box.hidden=true,2600);}
+  function renderResult(data,announce=false) {
     if(!data?.assessment?.title||!Array.isArray(data.assessment.ingredients)||!data.label)throw new Error('Invalid result. Please scan again.');
     state.result=data;const a=data.assessment,l=data.label;
     $('product-name').textContent=l.product_name||'Your food label';
-    $('result-source').textContent=data.is_demo?'FICTIONAL EXAMPLE — NOT A REAL PRODUCT CHECK':'YOUR LABEL, EXPLAINED';
+    $('result-source').textContent=data.is_demo?'FICTIONAL EXAMPLE — NOT A REAL PRODUCT CHECK':(data.provider==='Tesseract local OCR'?'LOCAL OCR — CHECK AGAINST THE PACKAGE':'YOUR LABEL, EXPLAINED');
     $('result-basis').textContent=a.basis;
     $('verdict-card').className='verdict-card '+(['vegan','vegetarian','uncertain','non_vegetarian'].includes(a.verdict)?a.verdict:'uncertain');
     $('result-title').textContent=a.title;$('result-explanation').textContent=a.explanation;
@@ -61,18 +63,18 @@
     $('ingredients-list').replaceChildren();
     a.ingredients.forEach(i=>{
       const row=text('div','','ingredient-row'), title=text('div','','ingredient-title');
-      title.append(text('span',i.english));const kind=['plant','dairy','egg','honey','animal','uncertain'].includes(i.kind)?i.kind:'uncertain';
+      title.append(text('span',i.english,'ingredient-english'));const kind=['plant','dairy','egg','honey','animal','uncertain'].includes(i.kind)?i.kind:'uncertain';
       title.append(text('span',kind==='plant'?'Plant / mineral':kind,'ingredient-kind '+kind));
       row.append(title,text('div',i.original,'ingredient-original'),text('p',i.reason,'ingredient-reason'));$('ingredients-list').append(row);
     });
-    if(!a.ingredients.length)$('ingredients-list').append(text('p','No complete ingredient list was read. Photograph the back of the package.','small-note'));
+    if(!a.ingredients.length)$('ingredients-list').append(text('p','No complete ingredient list was read. Photograph the back of the package.','small-note'));setIngredientLanguage(state.ingredientLanguage);
     $('contains').textContent=l.contains?.length?l.contains.join(', '):'No explicit “contains” statement read — not an absence guarantee.';
     $('may-contain').textContent=l.may_contain?.length?l.may_contain.join(', '):'No precautionary statement read — not an absence guarantee.';
     $('translation').textContent=l.translated_text||'No readable text to translate.';$('original').textContent=l.original_text||'No original text read.';
     $('claims-wrap').hidden=!l.visible_claims?.length;$('claims').textContent=(l.visible_claims||[]).join(' · ');
     listInto('limitations-list',a.limitations||[]);$('ruleset').textContent='Rule version: '+a.ruleset_version;
     $('save-result').textContent='Save scan';$('result').hidden=false;
-    $('result').focus({preventScroll:true});$('result').scrollIntoView({behavior:'smooth',block:'start'});
+    $('result').focus({preventScroll:true});$('result').scrollIntoView({behavior:'smooth',block:'start'});if(announce)flashVerdict(a.preference_match);
   }
   async function scan() {
     if(state.busy)return;
@@ -84,7 +86,7 @@
     const form=new FormData();form.append('photo',state.file);form.append('preference',preference());form.append('consent','yes');
     state.result=null;$('result').hidden=true;setBusy(true);
     const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),85000);
-    try { renderResult(await api('/api/scan/',{method:'POST',body:form,signal:controller.signal})); }
+    try { renderResult(await api('/api/scan/',{method:'POST',body:form,signal:controller.signal}),true); }
     catch(error){showError(error.name==='AbortError'?'This scan timed out. No result was accepted; please try again.':error.message);}
     finally{clearTimeout(timer);setBusy(false);}
   }
@@ -112,6 +114,7 @@
       state.config=await api('/api/config/');const c=state.config;
       $('configuration-notice').replaceChildren();$('configuration-notice').hidden=true;
       if(!c.ai_configured){$('configuration-notice').textContent='Preview mode: the app owner must add an AI key to enable photo scanning. The examples below are fictional demonstrations.';$('configuration-notice').hidden=false;}
+      else if(c.scan_provider?.startsWith('Private')){$('configuration-notice').textContent='Free local mode: this label is read on the server with Tesseract OCR. Translation coverage is limited, so compare every result with the package.';$('configuration-notice').hidden=false;}
       else if(c.access_required&&!c.unlocked){$('configuration-notice').append(text('span','Private beta. '));const b=text('button','Enter access code','text-button');b.addEventListener('click',()=>$('access-dialog').showModal());$('configuration-notice').append(b);$('configuration-notice').hidden=false;}
       $('logout-button').hidden=!(c.access_required&&c.unlocked);
     }catch{showError('Cannot reach the app server. Check your connection and refresh.');}
@@ -121,6 +124,7 @@
   $('remove-photo').addEventListener('click',clearPhoto);$('analyze-button').addEventListener('click',scan);
   $('privacy-open').addEventListener('click',()=>changePage('about'));$('save-result').addEventListener('click',saveResult);
   document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>changePage(b.dataset.page)));
+  document.querySelectorAll('[data-ingredients-lang]').forEach(b=>b.addEventListener('click',()=>setIngredientLanguage(b.dataset.ingredientsLang)));
   document.querySelectorAll('[data-example]').forEach(b=>b.addEventListener('click',async()=>{
     if(state.busy)return;changePage('scan');$('error').hidden=true;
     try{renderResult(await api('/api/examples/'+b.dataset.example+'/?preference='+encodeURIComponent(preference())));}

@@ -9,6 +9,7 @@ from django.views.decorators.http import require_GET, require_POST
 from .demo import EXAMPLES, demo_label
 from .images import MAX_BYTES, ImageInputError, prepare_image
 from .provider import ProviderError, extract_label
+from .local_ocr import extract_label_local
 from .models import MonthlyUsage
 from . import auth
 from .rules import PREFERENCES, assess
@@ -38,11 +39,13 @@ def health(request):
 
 @require_GET
 def config(request):
-    return JsonResponse({'ai_configured': bool(settings.GEMINI_API_KEY),
-        'access_required': bool(settings.SCANNER_ACCESS_CODE),
-        'unlocked': not settings.SCANNER_ACCESS_CODE or bool(request.session.get('unlocked')),
+    legacy_access=bool(settings.SCANNER_ACCESS_CODE) and not settings.AUTH_REQUIRED
+    return JsonResponse({'ai_configured': True,
+        'access_required': legacy_access,
+        'unlocked': not legacy_access or bool(request.session.get('unlocked')),
         'authenticated': auth.unlocked(request) if settings.AUTH_REQUIRED else True,
-        'model': settings.GEMINI_MODEL, 'max_bytes': MAX_BYTES})
+        'model': settings.GEMINI_MODEL if settings.GEMINI_API_KEY else 'tesseract-local',
+        'scan_provider': 'Gemini Flash-Lite' if settings.GEMINI_API_KEY else 'Private local OCR (free)', 'max_bytes': MAX_BYTES})
 
 @require_GET
 def usage(request):
@@ -52,7 +55,7 @@ def usage(request):
     totals=rows.aggregate(scans=Sum('scans'),input=Sum('input_tokens'),output=Sum('output_tokens'))
     input_tokens=totals['input'] or 0;output_tokens=totals['output'] or 0
     usd=input_tokens/1_000_000*0.10+output_tokens/1_000_000*0.40
-    return JsonResponse({'month':date.today().strftime('%B %Y'),'scans':totals['scans'] or 0,'input_tokens':input_tokens,'output_tokens':output_tokens,'estimated_usd':round(usd,6),'model':settings.GEMINI_MODEL})
+    return JsonResponse({'month':date.today().strftime('%B %Y'),'scans':totals['scans'] or 0,'input_tokens':input_tokens,'output_tokens':output_tokens,'estimated_usd':round(usd,6),'model':settings.GEMINI_MODEL if settings.GEMINI_API_KEY else 'Tesseract local OCR · free'})
 
 @require_POST
 def unlock(request):
@@ -73,17 +76,15 @@ def logout(request):
     request.session.flush()
     return JsonResponse({'unlocked': False})
 
-def output(label, preference, example=False):
+def output(label, preference, example=False, provider='Gemini'):
     return {'label': label.model_dump(), 'assessment': assess(label, preference),
-        'is_demo': example, 'provider': 'fictional example' if example else 'Gemini'}
+        'is_demo': example, 'provider': 'fictional example' if example else provider}
 
 @require_POST
 def scan(request):
     if settings.AUTH_REQUIRED and not auth.unlocked(request):return JsonResponse({'error':'Sign in and unlock the app first.'},status=401)
-    if settings.SCANNER_ACCESS_CODE and not request.session.get('unlocked'):
+    if not settings.AUTH_REQUIRED and settings.SCANNER_ACCESS_CODE and not request.session.get('unlocked'):
         return JsonResponse({'error': 'Enter your private-beta access code before scanning.'}, status=403)
-    if not settings.GEMINI_API_KEY:
-        return JsonResponse({'error': 'Photo scanning is not configured yet. The owner must add GEMINI_API_KEY. You can try the labelled examples.'}, status=503)
     try:
         if not hit('upload:' + client_id(request), settings.SCANS_PER_MINUTE * 3, 60):
             return JsonResponse({'error': 'Too many uploads. Please wait a minute.'}, status=429)
@@ -103,13 +104,13 @@ def scan(request):
         # Global daily quota cannot be bypassed by a fresh browser session or new IP.
         if not hit('scan:' + client_id(request), settings.SCANS_PER_MINUTE, 60) or not hit('daily-total', settings.SCANS_PER_DAY, 86400):
             return JsonResponse({'error': 'Scan limit reached. Please try later.'}, status=429)
-        result = extract_label(cleaned, settings.GEMINI_API_KEY, settings.GEMINI_MODEL)
+        result = extract_label(cleaned, settings.GEMINI_API_KEY, settings.GEMINI_MODEL) if settings.GEMINI_API_KEY else extract_label_local(cleaned)
         label = getattr(result,'label',result)
         user=auth.account(request)
         if user:
-            row,_=MonthlyUsage.objects.get_or_create(account=user,month=date.today().replace(day=1),model_name=settings.GEMINI_MODEL)
+            row,_=MonthlyUsage.objects.get_or_create(account=user,month=date.today().replace(day=1),model_name=getattr(result,'model_name','') or settings.GEMINI_MODEL)
             MonthlyUsage.objects.filter(pk=row.pk).update(scans=F('scans')+1,input_tokens=F('input_tokens')+getattr(result,'input_tokens',0),output_tokens=F('output_tokens')+getattr(result,'output_tokens',0))
-        return JsonResponse(output(label, preference))
+        return JsonResponse(output(label, preference, provider=getattr(result,'provider','Gemini')))
     except ImageInputError as exc:
         return JsonResponse({'error': str(exc)}, status=400)
     except ProviderError as exc:

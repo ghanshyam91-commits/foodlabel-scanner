@@ -4,6 +4,7 @@ from django.test import SimpleTestCase, Client, override_settings
 from django.core.cache import cache
 from django.core.files.uploadedfile import SimpleUploadedFile
 from scanner.demo import demo_label
+from scanner.provider import ExtractionResult
 from scanner.tests.test_images import image_bytes
 
 @override_settings(GEMINI_API_KEY='test-key', SCANNER_ACCESS_CODE='', DEBUG=True)
@@ -20,7 +21,10 @@ class ViewTests(SimpleTestCase):
     def test_no_consent(self):self.assertEqual(self.client.post('/api/scan/').status_code,400)
     def test_csrf_enforced(self):self.assertEqual(Client(enforce_csrf_checks=True).post('/api/scan/').status_code,403)
     @override_settings(GEMINI_API_KEY='')
-    def test_no_key_no_fake_success(self):self.assertEqual(self.client.post('/api/scan/').status_code,503)
+    @patch('scanner.views.extract_label_local',return_value=ExtractionResult(demo_label('oats'),provider='Tesseract local OCR',model_name='tesseract-local'))
+    def test_no_key_uses_local_ocr(self,mock_ocr):
+        response=self.client.post('/api/scan/',{'consent':'yes','photo':SimpleUploadedFile('test.png',image_bytes(),content_type='image/png')})
+        self.assertEqual(response.status_code,200);self.assertEqual(response.json()['provider'],'Tesseract local OCR');mock_ocr.assert_called_once()
     @override_settings(SCANNER_ACCESS_CODE='a-long-private-code')
     def test_access_required(self):self.assertEqual(self.client.post('/api/scan/').status_code,403)
     @override_settings(SCANNER_ACCESS_CODE='a-long-private-code')

@@ -34,6 +34,8 @@ class ExtractionResult:
     label: LabelExtraction
     input_tokens: int = 0
     output_tokens: int = 0
+    provider: str = 'Gemini'
+    model_name: str = ''
     def __getattr__(self, name):
         return getattr(self.label, name)
 
@@ -82,7 +84,7 @@ def extract_label(image: bytes, api_key: str, model: str) -> ExtractionResult:
             raise ProviderError('The AI could not read the complete label. Try a clearer photo.')
         text = ''.join(part.get('text', '') for part in candidate['content']['parts'] if not part.get('thought'))
         usage = body.get('usageMetadata') or {}
-        return ExtractionResult(LabelExtraction.model_validate_json(text), max(0,int(usage.get('promptTokenCount') or 0)), max(0,int(usage.get('candidatesTokenCount') or 0)))
+        return ExtractionResult(LabelExtraction.model_validate_json(text), max(0,int(usage.get('promptTokenCount') or 0)), max(0,int(usage.get('candidatesTokenCount') or 0)), 'Gemini', model)
     except ProviderError:
         raise
     except httpx.TimeoutException as exc:
