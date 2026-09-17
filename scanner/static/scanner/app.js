@@ -567,7 +567,10 @@
   function renderShopSearch(data) {
     $('searched-query').textContent = `“${data.query_en}”`;
     $('translated-query').textContent = `“${data.preference_query_nl}”`;
-    $('search-scope').textContent = `${data.preference_label} · ${data.location_label}`;
+    const radiusLabel = data.search_radius_km
+      ? `${data.expanded_search ? 'Expanded to' : 'Within'} ${data.search_radius_km} km`
+      : '';
+    $('search-scope').textContent = [data.preference_label, data.location_label, radiusLabel].filter(Boolean).join(' · ');
     $('header-location-label').textContent = data.location_label;
     $('price-update').textContent = data.eur_to_inr
       ? `€1 ≈ ${formatInr(data.eur_to_inr)}${data.exchange_rate_date ? ` · ${data.exchange_rate_date}` : ''}`
@@ -576,7 +579,10 @@
     list.replaceChildren();
     const visibleResults = (data.results || []).filter((row) => row.available);
     visibleResults.forEach((row) => list.append(renderShopResult(row)));
-    if (!visibleResults.length) list.append(text('div', 'No matching products were found at the nearby supermarkets.', 'empty-state shop-empty-state'));
+    if (!visibleResults.length) {
+      const area = data.search_radius_km ? ` within ${data.search_radius_km} km` : '';
+      list.append(text('div', `No matching products were found${area}.`, 'empty-state shop-empty-state'));
+    }
     syncBuyButtons();
     const hiddenCount = Math.max(0, Number(data.stores_without_matches) || 0);
     $('result-count').textContent = `${visibleResults.length} match${visibleResults.length === 1 ? '' : 'es'}${hiddenCount ? ` · ${hiddenCount} without results hidden` : ''}`;

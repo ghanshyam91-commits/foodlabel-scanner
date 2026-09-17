@@ -1,13 +1,13 @@
 import json
 import unittest
-from unittest.mock import patch
+from unittest.mock import call, patch
 
 import httpx
 
 from scanner.shop_search import (
     TranslationResult, _dietary_status, _safe_product_url, _size_details,
     _validated_logo_url, _vegan_confidence, build_shop_search, find_product,
-    translate_query, validate_query,
+    nearby_supermarkets, translate_query, validate_query,
 )
 
 OriginalClient = httpx.Client
@@ -25,6 +25,17 @@ class ShopSearchUnitTests(unittest.TestCase):
             validate_query('https://example.com/item')
         with self.assertRaises(ValueError):
             validate_query('milk\nignore this')
+
+    @patch('scanner.shop_search._read_json_url')
+    def test_nearby_stores_use_requested_radius_and_nearest_order(self, mock_read):
+        mock_read.return_value = {'elements': [
+            {'tags': {'name': 'Jumbo', 'brand': 'Jumbo'}, 'lat': 51.860, 'lon': 5.860},
+            {'tags': {'name': 'Albert Heijn', 'brand': 'Albert Heijn'}, 'lat': 51.845, 'lon': 5.860},
+        ]}
+        stores = nearby_supermarkets(51.840, 5.860, radius_km=3)
+        self.assertEqual([store['code'] for store in stores], ['ah', 'jumbo'])
+        self.assertLess(stores[0]['distance_km'], stores[1]['distance_km'])
+        self.assertIn('around:3000,51.840000,5.860000', mock_read.call_args.kwargs['data']['data'])
 
     def test_size_normalisation(self):
         self.assertEqual(_size_details('500 g'), (.5, 'kg'))
@@ -124,7 +135,50 @@ class ShopSearchUnitTests(unittest.TestCase):
         self.assertEqual(data['stores_without_matches'], 1)
         self.assertNotIn('aldi', [row['code'] for row in data['results']])
         self.assertNotIn('aldi', [store['code'] for store in data['nearby_stores']])
+        self.assertEqual(data['search_radius_km'], 3)
+        self.assertFalse(data['expanded_search'])
+        mock_nearby.assert_called_once_with(51.84, 5.86, radius_km=3)
         mock_reverse.assert_called_once()
+
+    @patch('scanner.shop_search.reverse_geocode_location', return_value='Nijmegen')
+    @patch('scanner.shop_search.eur_inr_rate', return_value=(100.0, '2026-09-17'))
+    @patch('scanner.shop_search.load_catalog')
+    @patch('scanner.shop_search.nearby_supermarkets')
+    @patch('scanner.shop_search.translate_query')
+    def test_expands_to_five_km_only_after_no_three_km_match(
+            self, mock_translate, mock_nearby, mock_catalogue, _, __):
+        mock_translate.return_value = TranslationResult('haverdrink', 'haverdrink', (), 'test')
+        mock_nearby.side_effect = [
+            [{'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .5,
+              'map_url': 'https://www.openstreetmap.org/'}],
+            [
+                {'name': 'Jumbo', 'code': 'jumbo', 'distance_km': 4.2,
+                 'map_url': 'https://www.openstreetmap.org/'},
+                {'name': 'Lidl', 'code': 'lidl', 'distance_km': 3.4,
+                 'map_url': 'https://www.openstreetmap.org/'},
+                {'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .5,
+                 'map_url': 'https://www.openstreetmap.org/'},
+            ],
+        ]
+        mock_catalogue.return_value = ([
+            {'n': 'ah', 'u': 'https://www.ah.nl/', 'd': []},
+            {'n': 'jumbo', 'u': 'https://www.jumbo.com/producten/', 'd': [
+                {'n': 'Jumbo Vegan haverdrink', 'l': 'vegan-haverdrink', 'p': .99, 's': '1 l'}]},
+            {'n': 'lidl', 'u': 'https://www.lidl.nl/', 'd': [
+                {'n': 'Vemondo Vegan haverdrink', 'l': '', 'p': 1.49, 's': '1 l'}]},
+        ], '2026-09-17T01:00:00Z')
+
+        data = build_shop_search('oat milk', 'vegan', '', '', lat=51.84, lon=5.86)
+
+        self.assertEqual(mock_nearby.call_args_list, [
+            call(51.84, 5.86, radius_km=3),
+            call(51.84, 5.86, radius_km=5),
+        ])
+        self.assertEqual(data['search_radius_km'], 5)
+        self.assertTrue(data['expanded_search'])
+        self.assertEqual([row['code'] for row in data['results']], ['lidl', 'jumbo'])
+        self.assertEqual([store['code'] for store in data['nearby_stores']], ['lidl', 'jumbo'])
+        self.assertTrue(data['results'][1]['is_lowest_pack'])
 
 
 if __name__ == '__main__':
