@@ -849,9 +849,6 @@
       if (!config.ai_configured) {
         $('configuration-notice').textContent = 'Preview mode: the app owner must add an AI key to enable photo scanning. The examples below are fictional demonstrations.';
         $('configuration-notice').hidden = false;
-      } else if (config.scan_provider?.startsWith('Private')) {
-        $('configuration-notice').textContent = 'Free local mode: Tesseract reads this label on the server. Translation coverage is limited, so compare every result with the package.';
-        $('configuration-notice').hidden = false;
       } else if (config.access_required && !config.unlocked) {
         $('configuration-notice').append(text('span', 'Private beta. '));
         const button = text('button', 'Enter access code', 'text-button');
