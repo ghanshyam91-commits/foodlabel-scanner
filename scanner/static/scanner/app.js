@@ -8,6 +8,12 @@
     vegetarian_no_eggs: 'Vegetarian without eggs',
     vegetarian_with_eggs: 'Vegetarian with eggs',
   };
+  const badgeNames = {
+    non_vegetarian: 'Non-veg',
+    vegan: 'Vegan',
+    vegetarian_no_eggs: 'Vegetarian',
+    vegetarian_with_eggs: 'Vegetarian + eggs',
+  };
   const state = {
     file: null,
     url: null,
@@ -109,7 +115,7 @@
   function setBusy(busy) {
     state.busy = busy;
     $('progress').hidden = !busy;
-    ['camera-button', 'scan-launch', 'home-scan-button', 'home-upload-button', 'remove-photo'].forEach((id) => {
+    ['camera-button', 'scan-launch', 'remove-photo'].forEach((id) => {
       if ($(id)) $(id).disabled = busy;
     });
     document.querySelectorAll('[data-example], input[name="preference"]').forEach((element) => { element.disabled = busy; });
@@ -181,11 +187,16 @@
     });
   }
 
+  function setLocationLabels(searchLabel, headerLabel = searchLabel) {
+    $('location-label').textContent = searchLabel;
+    $('header-location-label').textContent = headerLabel;
+  }
+
   function locationError(message) {
     $('manual-location-wrap').hidden = false;
     $('shop-search-error').textContent = message;
     $('shop-search-error').hidden = false;
-    $('location-label').textContent = 'Location unavailable';
+    setLocationLabels('Location unavailable', 'Set location');
     $('manual-location').focus();
   }
 
@@ -197,7 +208,7 @@
         reject(error);
         return;
       }
-      $('location-label').textContent = 'Finding your location…';
+      setLocationLabels('Finding your location…', 'Finding…');
       $('shop-search-error').hidden = true;
       navigator.geolocation.getCurrentPosition((position) => {
         state.searchLocation = {
@@ -206,7 +217,7 @@
         };
         $('manual-location').value = '';
         $('manual-location-wrap').hidden = true;
-        $('location-label').textContent = 'Current location ready';
+        setLocationLabels('Current location ready', 'Current location');
         resolve(state.searchLocation);
       }, () => {
         const error = new Error('Allow location access, or enter a Dutch city or postcode.');
@@ -291,6 +302,7 @@
     $('searched-query').textContent = `“${data.query_en}”`;
     $('translated-query').textContent = `“${data.preference_query_nl}”`;
     $('search-scope').textContent = `${data.preference_label} · ${data.location_label}`;
+    $('header-location-label').textContent = data.location_label;
     $('price-update').textContent = data.eur_to_inr
       ? `€1 ≈ ${formatInr(data.eur_to_inr)}${data.exchange_rate_date ? ` · ${data.exchange_rate_date}` : ''}`
       : 'INR conversion temporarily unavailable';
@@ -611,7 +623,8 @@
     const range = current === 'vegan' ? 'vegan' : (current === 'non_vegetarian' ? 'full food' : 'vegetarian');
     document.querySelector('.shop-card').href = current === 'non_vegetarian' ? 'https://www.ah.nl/' : 'https://www.ah.nl/producten/20128/vegetarisch-vegan-en-plantaardig';
     $('home-preference').textContent = `${friendly} picks, with the label always in reach.`;
-    $('active-preference-pill').textContent = friendly;
+    $('header-preference-label').textContent = badgeNames[current];
+    $('header-preference').dataset.preference = current;
     $('search-preference').textContent = friendly;
     document.querySelectorAll('.shop-card-copy').forEach((element, index) => {
       const suffix = index === 0 ? ' & Terra line' : (index === 1 ? ' & Veggie Chef' : ' & Vemondo line');
@@ -655,18 +668,20 @@
     event.preventDefault();
     await searchProducts();
   });
-  $('use-location').addEventListener('click', async () => {
+  ['use-location', 'header-location'].forEach((id) => $(id).addEventListener('click', async () => {
     try {
       await requestCurrentLocation();
       toast('Current location is ready for nearby comparisons.');
     } catch {}
-  });
+  }));
   $('manual-location-toggle').addEventListener('click', () => {
     $('manual-location-wrap').hidden = false;
     $('manual-location').focus();
   });
   $('manual-location').addEventListener('input', () => {
-    if ($('manual-location').value.trim()) $('location-label').textContent = 'Use my current location instead';
+    const manual = $('manual-location').value.trim();
+    if (manual) setLocationLabels('Use my current location instead', manual);
+    else setLocationLabels('Use my current location', 'Use location');
   });
   document.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => changePage(button.dataset.page)));
   document.querySelectorAll('[data-ingredients-lang]').forEach((button) => button.addEventListener('click', () => setIngredientLanguage(button.dataset.ingredientsLang)));
@@ -751,16 +766,7 @@
   });
 
   $('scan-launch').addEventListener('click', openScanDialog);
-  $('home-scan-button').addEventListener('click', openScanDialog);
   $('camera-button').addEventListener('click', openScanDialog);
-  $('home-upload-button').addEventListener('click', () => {
-    if (!hasConsent()) {
-      changePage('settings');
-      toast('Enable photo processing permission before scanning.');
-      return;
-    }
-    $('upload-input').click();
-  });
   $('sheet-close').addEventListener('click', () => $('scan-dialog').close());
   [['sheet-camera', 'camera-input'], ['sheet-gallery', 'upload-input']].forEach(([button, input]) => {
     $(button).addEventListener('click', () => {

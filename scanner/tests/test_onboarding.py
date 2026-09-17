@@ -34,9 +34,14 @@ class PreferenceTests(TestCase):
         root = Path(__file__).parents[1]
         html = (root / 'templates/scanner/index.html').read_text()
         script = (root / 'static/scanner/app.js').read_text()
-        self.assertIn('class="scan-orb"', html)
+        style = (root / 'static/scanner/lavender.css').read_text()
+        self.assertIn('id="scan-launch" class="scan-launch"', html)
         self.assertIn('class="scan-viewfinder"', html)
         self.assertIn('class="icon-button top-settings"', html)
+        self.assertIn('id="header-preference"', html)
+        self.assertIn('id="header-location"', html)
+        self.assertNotIn('class="home-scan"', html)
+        self.assertIn('@keyframes navScanGlow', style)
         self.assertNotIn('id="analyze-button"', html)
         for emoji in ['⚙', '⌂', '▤', '⌗']:
             self.assertNotIn(emoji, html)
