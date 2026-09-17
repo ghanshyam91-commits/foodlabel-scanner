@@ -7,6 +7,10 @@ A standalone, mobile-first Django app for photographing Dutch food labels, trans
 ## What is included
 
 - Camera capture / photo upload, preview, metadata stripping and image validation.
+- English grocery search with Dutch query translation, current-location or city/postcode lookup,
+  nearby supermarket comparison, direct retailer links, and EUR/INR prices.
+- Price comparisons use the reusable Checkjebon.nl catalogue; Gemini translates the query but
+  never supplies or invents a price. Nearby-chain distances come from OpenStreetMap.
 - Dutch-to-English text extraction and translation using a configurable Gemini model.
 - Separate deterministic dietary rules applied to the **original** ingredient text.
 - Vegan-compatible, vegetarian-not-vegan, non-vegetarian ingredient found, and uncertain results.
@@ -34,7 +38,7 @@ python manage.py runserver
 
 Open `http://127.0.0.1:8000/`. Local development is enabled by the supplied `.env.example`. Without an API key, the UI explicitly displays preview mode and only fictional examples work. No real scan is silently replaced by a demo.
 
-The API key stays on the backend. Never put it in browser JavaScript, Git, an issue, or a chat message. Generate it using Google AI Studio and store it as a server environment variable. Provider availability, quota and billing must be checked for the actual account. The default model is `gemini-3.1-flash-lite`; `GEMINI_MODEL` is configurable.
+The API key stays on the backend. Never put it in browser JavaScript, Git, an issue, or a chat message. Generate it using Google AI Studio and store it as a server environment variable. Provider availability, quota and billing must be checked for the actual account. The default model is `gemini-2.5-flash-lite`; `GEMINI_MODEL` is configurable.
 
 ## Tests
 
@@ -75,12 +79,14 @@ DJANGO_SECRET_KEY=<random secret with at least 50 characters>
 DJANGO_ALLOWED_HOSTS=<exact Railway/custom hostname>
 DJANGO_CSRF_TRUSTED_ORIGINS=https://<exact hostname>
 GEMINI_API_KEY=<server-side API key>
-GEMINI_MODEL=gemini-3.1-flash-lite
+GEMINI_MODEL=gemini-2.5-flash-lite
 SCANNER_ACCESS_CODE=<private passcode with at least 16 characters>
 REDIS_URL=<Redis connection string>
 TRUST_PROXY_SSL=1
 SCANS_PER_MINUTE=5
 SCANS_PER_DAY=100
+SHOP_SEARCHES_PER_HOUR=20
+SHOP_SEARCHES_PER_DAY=500
 ```
 
 Only set `TRUST_PROXY_SSL=1` behind a trusted HTTPS reverse proxy that removes spoofed forwarded headers. The `/health/` endpoint is exempt from HTTPS redirect for platform health checks. All normal production pages require HTTPS. Configure an ingress request-body limit of 9 MB and connection limits as additional protection.
@@ -95,6 +101,8 @@ Signed-cookie sessions hold only the private-beta access flag. There is no accou
 - `POST /api/unlock/`: form field `code`; CSRF required.
 - `POST /api/logout/`: clear access session; CSRF required.
 - `POST /api/scan/`: multipart `photo`, `preference`, `consent=yes`; CSRF required.
+- `POST /api/shop-search/`: form fields `query`, `preference`, and either `lat` + `lon` or
+  `location`; returns up to ten nearby-chain comparisons with source timestamps and EUR/INR prices.
 - `GET /api/examples/{oats|chocolate|sweets|bread}/?preference=vegan`: clearly fictional examples.
 - `GET /health/`: process health, not AI readiness.
 
@@ -102,10 +110,18 @@ Signed-cookie sessions hold only the private-beta access flag. There is no accou
 
 An AI reading error can still cause a wrong result. “Vegan-compatible ingredients” is not a certification and cannot verify manufacturing aids. Unknown or missing ingredient text blocks positive results. Do not use this app for medical or allergy-safety decisions. See `docs/SAFETY.md` and `docs/PRIVACY.md`.
 
+Supermarket prices are catalogue snapshots and may differ by branch, delivery area, loyalty offer,
+promotion, or time. The dietary badge on shopping results is deliberately conservative and uses the
+product name only; it is not a substitute for scanning the package. Browser coordinates are rounded
+before submission, used to find nearby chains, and are not saved by FoodLens.
+
 ## Reference documentation
 
-- Gemini model: https://ai.google.dev/gemini-api/docs/models/gemini-3.1-flash-lite
+- Gemini models: https://ai.google.dev/gemini-api/docs/models
 - Gemini request and JSON schema contract: https://ai.google.dev/api/generate-content
+- Checkjebon open supermarket price data: https://github.com/supermarkt/checkjebon
+- OpenStreetMap copyright and attribution: https://www.openstreetmap.org/copyright
+- ECB euro foreign-exchange reference rates: https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/
 - Django supported versions: https://www.djangoproject.com/download/
 - V-Label explanations: https://www.v-label.com/faqs/
 - Vegan Society on allergen versus vegan labelling: https://www.vegansociety.com/news/blog/TM2021/allergen-vs-vegan-labelling

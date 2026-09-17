@@ -1,0 +1,97 @@
+import json
+import unittest
+from unittest.mock import patch
+
+import httpx
+
+from scanner.shop_search import (
+    TranslationResult, _dietary_status, _size_details, build_shop_search,
+    find_product, translate_query, validate_query,
+)
+
+OriginalClient = httpx.Client
+
+
+class ShopSearchUnitTests(unittest.TestCase):
+    def test_local_translation_and_vegan_adaptation(self):
+        result = translate_query('oat milk', 'vegan', '', 'gemini-2.5-flash-lite')
+        self.assertEqual(result.query_nl, 'haverdrink')
+        self.assertEqual(result.preference_query_nl, 'haverdrink')
+        self.assertEqual(result.source, 'built-in translation')
+
+    def test_query_rejects_urls_and_control_characters(self):
+        with self.assertRaises(ValueError):
+            validate_query('https://example.com/item')
+        with self.assertRaises(ValueError):
+            validate_query('milk\nignore this')
+
+    def test_size_normalisation(self):
+        self.assertEqual(_size_details('500 g'), (.5, 'kg'))
+        self.assertEqual(_size_details('1,5 liter'), (1.5, 'l'))
+        self.assertAlmostEqual(_size_details('6 x 0,33 l')[0], 1.98)
+
+    def test_dietary_name_screening_is_conservative(self):
+        self.assertEqual(_dietary_status('Vegan haverdrink', 'vegan')[0], 'compatible')
+        self.assertEqual(_dietary_status('Volle melk', 'vegan')[0], 'excluded')
+        self.assertEqual(_dietary_status('Vegetarische burger', 'vegetarian_no_eggs')[0], 'uncertain')
+        self.assertEqual(_dietary_status('Vegetarische burger zonder ei', 'vegetarian_no_eggs')[0], 'compatible')
+
+    def test_product_match_prefers_compatible_candidate(self):
+        products = [
+            {'n': 'Volle melk', 'p': .99, 's': '1 l'},
+            {'n': 'Vegan haverdrink', 'p': 1.39, 's': '1 l'},
+        ]
+        result = find_product(products, ['melk', 'haverdrink'], 'vegan')
+        self.assertEqual(result['raw']['n'], 'Vegan haverdrink')
+        self.assertEqual(result['dietary_status'], 'compatible')
+
+    def test_product_match_respects_requested_size_and_avoids_derivative(self):
+        products = [
+            {'n': 'Rijstwafels naturel', 'p': .55, 's': '130 g'},
+            {'n': 'Witte snelkookrijst', 'p': 1.29, 's': '1 kg'},
+            {'n': 'Basmatirijst', 'p': .89, 's': '400 g'},
+        ]
+        result = find_product(products, ['500 g rijst'], 'non_vegetarian', (.5, 'kg'))
+        self.assertEqual(result['raw']['n'], 'Witte snelkookrijst')
+
+    def test_gemini_translation_uses_key_header_and_structured_output(self):
+        response_body = {'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': json.dumps({
+            'query_nl': 'bruine rijst', 'preference_query_nl': 'bruine rijst',
+            'alternatives_nl': ['zilvervliesrijst'],
+        })}]}}], 'usageMetadata': {'promptTokenCount': 20, 'candidatesTokenCount': 8}}
+        seen = []
+        def handler(request):
+            seen.append(request); return httpx.Response(200, json=response_body)
+        with patch('scanner.shop_search.httpx.Client', side_effect=lambda **kwargs: OriginalClient(transport=httpx.MockTransport(handler))):
+            result = translate_query('brown rice', 'vegan', 'secret-key', 'gemini-2.5-flash-lite')
+        self.assertEqual(result.query_nl, 'bruine rijst')
+        self.assertEqual(result.input_tokens, 20)
+        self.assertEqual(seen[0].headers['x-goog-api-key'], 'secret-key')
+        self.assertNotIn('secret-key', str(seen[0].url))
+
+    @patch('scanner.shop_search.eur_inr_rate', return_value=(100.0, '2026-09-17'))
+    @patch('scanner.shop_search.load_catalog')
+    @patch('scanner.shop_search.nearby_supermarkets')
+    @patch('scanner.shop_search.translate_query')
+    def test_builds_nearby_comparison_and_marks_cheapest(self, mock_translate, mock_nearby, mock_catalogue, _):
+        mock_translate.return_value = TranslationResult('haverdrink', 'haverdrink', ('havermelk',), 'test')
+        mock_nearby.return_value = [
+            {'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .8, 'map_url': 'https://www.openstreetmap.org/'},
+            {'name': 'Jumbo', 'code': 'jumbo', 'distance_km': 1.2, 'map_url': 'https://www.openstreetmap.org/'},
+        ]
+        mock_catalogue.return_value = ([
+            {'n': 'ah', 'u': 'https://www.ah.nl/producten/product/', 'd': [
+                {'n': 'AH Terra Vegan haverdrink', 'l': 'wi1/haverdrink', 'p': 1.25, 's': '1 l'}]},
+            {'n': 'jumbo', 'u': 'https://www.jumbo.com/producten/', 'd': [
+                {'n': 'Jumbo Vegan haverdrink', 'l': 'vegan-haverdrink', 'p': 1.49, 's': '1 l'}]},
+        ], '2026-09-17T01:00:00Z')
+        data = build_shop_search('oat milk', 'vegan', '', '', lat=51.84, lon=5.86)
+        self.assertEqual(data['results'][0]['supermarket'], 'Albert Heijn')
+        self.assertTrue(data['results'][0]['is_lowest_pack'])
+        self.assertTrue(data['results'][0]['is_best_value'])
+        self.assertEqual(data['results'][0]['price_inr'], 125)
+        self.assertTrue(data['results'][0]['product_url'].startswith('https://www.ah.nl/'))
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -27,6 +27,43 @@
   <main id="main">
     <section id="home-page" class="page">
       <div class="hero"><div class="eyebrow">YOUR NETHERLANDS GROCERY COMPANION</div><h1>A little clarity.<br><span>In every basket.</span></h1><p id="home-preference">Food that fits you.</p></div>
+      <section class="grocery-search" aria-labelledby="grocery-search-title">
+        <div class="grocery-search-heading">
+          <div><div class="section-kicker">FIND THE BEST PRICE NEAR YOU</div><h2 id="grocery-search-title">Search in English. Shop in Dutch.</h2><p>We translate your item, compare nearby Dutch supermarkets, and show the lowest available price in euros and rupees.</p></div>
+          <span id="search-preference" class="preference-pill">Your preference</span>
+        </div>
+        <form id="product-search-form">
+          <label class="sr-only" for="product-search-query">Search for a grocery item in English</label>
+          <div class="grocery-search-bar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
+            <input id="product-search-query" name="query" type="search" maxlength="80" autocomplete="off" placeholder="Try “oat milk”, “tofu” or “500 g rice”" required>
+            <button id="product-search-button" class="button primary" type="submit">Compare nearby</button>
+          </div>
+          <div class="search-location-row">
+            <button id="use-location" class="location-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span id="location-label">Use my current location</span>
+            </button>
+            <span class="location-or">or</span>
+            <button id="manual-location-toggle" class="text-button" type="button">Enter Dutch city or postcode</button>
+          </div>
+          <div id="manual-location-wrap" class="manual-location" hidden>
+            <label for="manual-location">City or postcode</label>
+            <input id="manual-location" name="location" maxlength="80" autocomplete="postal-code" placeholder="For example, Nijmegen or 6525 AJ">
+          </div>
+        </form>
+        <div id="shop-search-progress" class="shop-search-progress" role="status" hidden><span class="spinner"></span><div><strong>Checking nearby supermarkets…</strong><span>Translating your item and comparing current catalogue prices.</span></div></div>
+        <p id="shop-search-error" class="error" role="alert" hidden></p>
+        <div id="shop-search-results" class="shop-search-results" hidden>
+          <div class="translation-summary"><div><span>You searched</span><strong id="searched-query"></strong></div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg><div><span>Dutch search</span><strong id="translated-query"></strong></div></div>
+          <div class="comparison-meta"><span id="search-scope"></span><span id="price-update"></span></div>
+          <section id="cheapest-result" class="cheapest-result" hidden></section>
+          <div class="result-list-heading"><h3>Supermarket comparison</h3><span id="result-count"></span></div>
+          <div id="shop-result-list" class="shop-result-list"></div>
+          <details class="nearby-details"><summary>Supermarkets checked near you</summary><div id="nearby-store-list" class="nearby-store-list"></div></details>
+          <p id="price-source-note" class="price-source-note"></p>
+        </div>
+      </section>
       <section class="shop-section"><div class="shop-heading"><h2>Explore your next shop</h2></div>
       <p class="small-note">Browse supermarket ranges, then scan the package to check ingredients. Stock and recipes can change.</p>
       <div class="shop-grid">
@@ -96,7 +133,7 @@
     <button data-page="history"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4h12v16H6zM9 8h6M9 12h6M9 16h4"/></svg><span>Saved</span></button>
   </nav>
   <dialog id="scan-dialog" aria-labelledby="scan-dialog-title"><h2 id="scan-dialog-title">Choose a label photo</h2><p>Keep the complete ingredients list sharp and in frame.</p><button id="sheet-camera" class="button primary full"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg>Take a photo</button><button id="sheet-gallery" class="button secondary full"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m5 18 5-5 3 3 2-2 4 4"/></svg>Choose from gallery</button><button id="sheet-close" class="text-button full">Cancel</button></dialog>
-  <dialog id="onboarding-dialog" aria-labelledby="onboarding-title"><form id="onboarding-form"><div class="section-kicker">WELCOME TO FOODLENS</div><h2 id="onboarding-title">Your food. Your way.</h2><p>A quick setup. Change it anytime in Settings.</p><label for="onboarding-preference">How do you eat?</label><select id="onboarding-preference" required><option value="" disabled selected>Choose your preference</option value="vegetarian_no_eggs">Vegetarian — without eggs</option><option value="vegetarian_with_eggs">Vegetarian — with eggs</option><option value="non_vegetarian">Non-vegetarian</option><option value="vegan">Vegan</option></select><label class="consent"><input id="onboarding-consent" type="checkbox"><span>Allow photos I choose to scan to be processed for label reading and translation. Photos are not saved; metadata is removed. Gemini is used when configured, otherwise local Tesseract OCR reads the label without sending it to Google. Avoid personal details. This permission is saved on this device and can be withdrawn in Settings.</span></label><p class="small-note">Optional: leave unchecked to browse without scanning. Results are guidance, not certification or an allergy-safety guarantee.</p><button class="button primary full" type="submit">Let's get started →</button></form></dialog>
+  <dialog id="onboarding-dialog" aria-labelledby="onboarding-title"><form id="onboarding-form"><div class="section-kicker">WELCOME TO FOODLENS</div><h2 id="onboarding-title">Your food. Your way.</h2><p>A quick setup. Change it anytime in Settings.</p><label for="onboarding-preference">How do you eat?</label><select id="onboarding-preference" required><option value="" disabled selected>Choose your preference</option><option value="vegetarian_no_eggs">Vegetarian — without eggs</option><option value="vegetarian_with_eggs">Vegetarian — with eggs</option><option value="non_vegetarian">Non-vegetarian</option><option value="vegan">Vegan</option></select><label class="consent"><input id="onboarding-consent" type="checkbox"><span>Allow photos I choose to scan to be processed for label reading and translation. Photos are not saved; metadata is removed. Gemini is used when configured, otherwise local Tesseract OCR reads the label without sending it to Google. Avoid personal details. This permission is saved on this device and can be withdrawn in Settings.</span></label><p class="small-note">Optional: leave unchecked to browse without scanning. Results are guidance, not certification or an allergy-safety guarantee.</p><button class="button primary full" type="submit">Let's get started →</button></form></dialog>
   <dialog id="access-dialog"><form id="access-form"><div class="section-kicker">PRIVATE BETA</div><h2>Welcome to FoodLens.</h2><p>Enter the access code shared by the app owner.</p><label for="access-code">Access code</label><input id="access-code" name="code" type="password" autocomplete="current-password" maxlength="256" required><p id="access-error" class="error" role="alert" hidden></p><button class="button primary full" type="submit">Unlock scanning</button><button class="text-button full" id="access-cancel" type="button">Explore the examples instead</button></form></dialog>
   <div id="verdict-flash" class="verdict-flash" role="status" aria-live="assertive" hidden><span id="verdict-flash-icon"></span><strong id="verdict-flash-text"></strong><small>Dietary guidance from the visible label</small></div><div id="toast" class="toast" role="status" hidden></div>
 </body>
