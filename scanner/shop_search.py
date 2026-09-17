@@ -772,9 +772,12 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
                 comparable = [row for row in preferred if row.get('unit') == dimension and row.get('unit_price_eur')]
         if comparable:
             min(comparable, key=lambda row: row['unit_price_eur'])['is_best_value'] = True
-    results.sort(key=lambda row: (row.get('distance_km') is None,
-                                  row.get('distance_km') if row.get('distance_km') is not None else math.inf,
-                                  normalize(row.get('supermarket') or '')))
+    results.sort(key=lambda row: (
+        row.get('distance_km') is None,
+        row.get('distance_km') if row.get('distance_km') is not None else math.inf,
+        row.get('price_eur', 10**9),
+        normalize(row.get('supermarket') or ''),
+    ))
     updated_label = updated
     if updated:
         try:

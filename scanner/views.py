@@ -12,7 +12,7 @@ from .provider import ProviderError, extract_label
 from .local_ocr import extract_label_local
 from .shop_search import (
     RETAILERS, ShopSearchError, build_shop_search, fallback_retailer_logo,
-    load_retailer_logo,
+    load_retailer_logo, reverse_geocode_location,
 )
 from .models import MonthlyUsage
 from . import auth
@@ -60,6 +60,20 @@ def shop_logo(request, code):
     response['X-FoodLens-Logo-Source'] = source
     response['Content-Disposition'] = f'inline; filename="{code}-logo"'
     return response
+
+@require_POST
+def location_name(request):
+    try:
+        lat = float(request.POST.get('lat', ''))
+        lon = float(request.POST.get('lon', ''))
+    except (TypeError, ValueError):
+        return JsonResponse({'error': 'Share a valid current location.'}, status=400)
+    if not (50.5 <= lat <= 53.7 and 3.0 <= lon <= 7.7):
+        return JsonResponse({'error': 'Current location must be within the Netherlands.'}, status=400)
+    name = reverse_geocode_location(round(lat, 3), round(lon, 3))
+    if not name:
+        return JsonResponse({'error': 'The current location name could not be found. Enter a city instead.'}, status=503)
+    return JsonResponse({'location_name': name})
 
 @require_GET
 def config(request):

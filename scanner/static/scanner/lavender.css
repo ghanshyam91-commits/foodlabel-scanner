@@ -245,20 +245,6 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .grocery-search-bar input { min-width: 0; padding: 13px 3px; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; }
 .grocery-search-bar input::placeholder { color: #aaa0b7; }
 .grocery-search-bar .button { min-height: 47px; padding-inline: 21px; }
-.search-location-row { display: flex; align-items: center; gap: 10px; margin: 0 0 13px; padding: 10px 12px; border: 1px solid #e4dcf1; border-radius: 16px; background: rgba(255, 255, 255, .76); }
-.location-current { min-width: 0; display: flex; align-items: center; gap: 8px; margin-right: auto; }
-.location-current > svg { width: 20px; height: 20px; flex: 0 0 auto; fill: none; stroke: var(--primary); stroke-width: 1.8; }
-.location-current small,
-.location-current strong { display: block; }
-.location-current small { color: var(--muted); font-size: 8px; letter-spacing: .8px; }
-.location-current strong { overflow: hidden; max-width: 220px; margin-top: 1px; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
-.location-button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 4px; border: 0; background: transparent; color: var(--primary); font-size: 12px; font-weight: 650; }
-.location-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
-.location-or { color: #9a90a8; font-size: 10px; }
-.manual-location { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
-.manual-location label { color: var(--muted); font-size: 11px; white-space: nowrap; }
-.manual-location input { width: min(320px, 100%); padding: 10px 12px; border: 1px solid #d9cdeb; border-radius: 12px; background: #fff; color: var(--ink); font: inherit; }
-.manual-location > span { color: var(--muted); font-size: 9px; }
 .shop-search-progress { display: flex; align-items: center; gap: 13px; margin-top: 20px; padding: 16px 18px; border: 1px solid #e4dcf2; border-radius: 17px; background: #fff; }
 .shop-search-progress strong,
 .shop-search-progress span:not(.spinner) { display: block; }
@@ -781,6 +767,12 @@ dialog::backdrop { background: rgba(28, 25, 44, .5); backdrop-filter: blur(7px);
 dialog .button { margin-top: 10px; }
 dialog select { width: 100%; margin: 7px 0 16px; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: white; color: var(--ink); }
 dialog .consent { font-size: 10px; }
+#location-dialog form label { display: block; margin-bottom: 6px; color: var(--muted); font-size: 11px; }
+#location-dialog form input { width: 100%; padding: 13px; border: 1px solid var(--line); border-radius: 14px; background: white; color: var(--ink); font: inherit; }
+#location-dialog .button .icon { width: 18px; height: 18px; }
+.location-divider { display: flex; align-items: center; gap: 10px; margin: 16px 0; color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.location-divider::before,
+.location-divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
 
 .verdict-flash { position: fixed; inset: 0; z-index: 100; display: grid; place-content: center; justify-items: center; padding: 28px; background: rgba(0, 110, 75, .94); color: white; text-align: center; backdrop-filter: blur(10px); }
 .verdict-flash.no { background: rgba(181, 42, 35, .94); }
@@ -837,14 +829,6 @@ dialog .consent { font-size: 10px; }
   .grocery-search-bar > svg { width: 20px; }
   .grocery-search-bar input { padding: 12px 2px; font-size: 15px; }
   .grocery-search-bar .button { grid-column: 1 / -1; width: 100%; min-height: 45px; }
-  .search-location-row { align-items: center; flex-wrap: wrap; gap: 2px 7px; padding: 10px; }
-  .location-current { flex: 1 0 100%; margin-bottom: 4px; }
-  .location-current strong { max-width: 250px; }
-  .location-or { padding-top: 9px; }
-  .manual-location { display: block; }
-  .manual-location label { display: block; margin-bottom: 5px; }
-  .manual-location input { width: 100%; }
-  .manual-location > span { display: block; margin-top: 5px; }
   .translation-summary { grid-template-columns: 1fr 25px 1fr; gap: 6px; padding: 14px 13px; }
   .translation-summary strong { font-size: 13px; }
   .translation-summary svg { width: 18px; }

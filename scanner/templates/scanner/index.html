@@ -52,8 +52,8 @@
       <button id="header-preference" class="header-chip preference-chip" type="button" data-page="settings" data-preference="vegan" aria-label="Change dietary preference">
         <svg class="icon"><use href="#i-leaf"/></svg><span id="header-preference-label">Vegan</span>
       </button>
-      <button id="header-location" class="header-chip location-chip" type="button" aria-label="Use current location">
-        <svg class="icon"><use href="#i-location"/></svg><span id="header-location-label" aria-live="polite">Use location</span>
+      <button id="header-location" class="header-chip location-chip" type="button" aria-label="Change shopping location">
+        <svg class="icon"><use href="#i-location"/></svg><span id="header-location-label" aria-live="polite">Nijmegen</span>
       </button>
     </div>
   </header>
@@ -65,17 +65,6 @@
           <h2 id="grocery-search-title">Find the best price</h2>
         </div>
         <form id="product-search-form">
-          <div class="search-location-row">
-            <span class="location-current"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span><small>SHOPPING NEAR</small><strong id="location-label">Choose a location</strong></span></span>
-            <button id="use-location" class="location-button" type="button">Use current location</button>
-            <span class="location-or">or</span>
-            <button id="manual-location-toggle" class="inline-link" type="button">Set city or postcode</button>
-          </div>
-          <div id="manual-location-wrap" class="manual-location" hidden>
-            <label for="manual-location">City or postcode</label>
-            <input id="manual-location" name="location" maxlength="80" autocomplete="postal-code" placeholder="For example, Nijmegen or 6525 AJ">
-            <span>Saved after a successful search</span>
-          </div>
           <label class="sr-only" for="product-search-query">Search for a grocery item in English</label>
           <div class="grocery-search-bar">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
@@ -236,6 +225,7 @@
   </nav>
 
   <dialog id="scan-dialog" aria-labelledby="scan-dialog-title"><div class="dialog-handle"></div><div class="dialog-heading"><div><div class="section-kicker">START A SCAN</div><h2 id="scan-dialog-title">Choose a label photo</h2></div><button id="sheet-close" class="round-button" type="button" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button></div><p>Keep the complete ingredients list sharp and in frame.</p><button id="sheet-camera" class="button primary full"><svg class="icon"><use href="#i-camera"/></svg>Take a photo</button><button id="sheet-gallery" class="button secondary full"><svg class="icon"><use href="#i-upload"/></svg>Choose from gallery</button></dialog>
+  <dialog id="location-dialog" aria-labelledby="location-dialog-title"><div class="dialog-handle"></div><div class="dialog-heading"><div><div class="section-kicker">SHOPPING AREA</div><h2 id="location-dialog-title">Change location</h2></div><button id="location-close" class="round-button" type="button" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button></div><p>Your selected location stays on this device until you change it here.</p><button id="location-current-button" class="button primary full" type="button"><svg class="icon"><use href="#i-location"/></svg>Use current location</button><div class="location-divider"><span>or</span></div><form id="location-form"><label for="location-input">City or postcode</label><input id="location-input" name="location" maxlength="80" autocomplete="postal-code" placeholder="Nijmegen or 6525 AJ" required><button class="button secondary full" type="submit">Save location</button></form><p id="location-error" class="error" role="alert" hidden></p></dialog>
   <dialog id="onboarding-dialog" aria-labelledby="onboarding-title"><form id="onboarding-form"><div class="section-kicker">WELCOME TO FOODLENS</div><h2 id="onboarding-title">Your food. Your way.</h2><p>A quick setup. Change it anytime in Settings.</p><label for="onboarding-preference">How do you eat?</label><select id="onboarding-preference" required><option value="" disabled selected>Choose your preference</option><option value="vegetarian_no_eggs">Vegetarian — without eggs</option><option value="vegetarian_with_eggs">Vegetarian — with eggs</option><option value="non_vegetarian">Non-vegetarian</option><option value="vegan">Vegan</option></select><label class="consent"><input id="onboarding-consent" type="checkbox"><span>Allow photos you choose to be processed for label reading and translation. Photos are not saved and metadata is removed. Gemini is used when configured; otherwise local OCR reads the label.</span></label><p class="small-note">Optional: leave unchecked to browse without scanning. Results are guidance, not certification or an allergy-safety guarantee.</p><button class="button primary full" type="submit">Get started →</button></form></dialog>
   <dialog id="access-dialog"><form id="access-form"><div class="section-kicker">PRIVATE BETA</div><h2>Welcome to FoodLens.</h2><p>Enter the access code shared by the app owner.</p><label for="access-code">Access code</label><input id="access-code" name="code" type="password" autocomplete="current-password" maxlength="256" required><p id="access-error" class="error" role="alert" hidden></p><button class="button primary full" type="submit">Unlock scanning</button><button class="text-button full" id="access-cancel" type="button">Explore examples instead</button></form></dialog>
   <div id="verdict-flash" class="verdict-flash" role="status" aria-live="assertive" hidden><span id="verdict-flash-icon"></span><strong id="verdict-flash-text"></strong><small>Dietary guidance from the visible label</small></div>
