@@ -29,6 +29,7 @@ class PreferenceTests(TestCase):
                        'product-search-form', 'location-dialog', 'location-input', 'shop-result-list',
                        'buy-list-groups', 'buy-list-count', 'clear-bought']:
             self.assertIn(marker, html)
+        self.assertIn('aria-label="Search supermarkets"', html)
         self.assertNotIn('id="consent"', html)
 
     def test_scan_ui_is_centered_icon_first_and_has_no_emoji_navigation(self):
@@ -46,6 +47,7 @@ class PreferenceTests(TestCase):
         self.assertIn('id="result-confidence"', html)
         self.assertIn('id="result-check-summary"', html)
         self.assertIn('class="result result-popup"', html)
+        self.assertIn('id="close-result"', html)
         self.assertIn('class="verdict-card minimal-verdict"', html)
         self.assertNotIn('id="ingredients-list"', html)
         self.assertNotIn('id="result-explanation"', html)
@@ -55,6 +57,7 @@ class PreferenceTests(TestCase):
         self.assertIn('@keyframes navScanGlow', style)
         self.assertIn('@keyframes selectedNavGlow', style)
         self.assertIn("externalLink('Open directions'", script)
+        self.assertIn("$('close-result').addEventListener", script)
         self.assertNotIn('Free local mode: Tesseract', script)
         self.assertIn('position: sticky', style)
         self.assertNotIn('id="analyze-button"', html)
@@ -66,7 +69,7 @@ class PreferenceTests(TestCase):
         html = (Path(__file__).parents[1] / 'templates/scanner/index.html').read_text()
         self.assertIn('Find the best price', html)
         self.assertIn('Search groceries in English', html)
-        self.assertIn('Compare prices', html)
+        self.assertIn('class="button primary grocery-search-submit"', html)
         self.assertNotIn('YOUR NETHERLANDS GROCERY COMPANION', html)
         self.assertNotIn('A little clarity.', html)
         self.assertNotIn('Search in English. Shop in Dutch.', html)

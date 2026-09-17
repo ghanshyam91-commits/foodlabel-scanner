@@ -240,12 +240,12 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
   box-shadow: 0 12px 38px rgba(88, 59, 140, .07);
 }
 .grocery-search-heading h2 { margin: 0 0 18px; font-size: 24px; letter-spacing: -.75px; }
-.grocery-search-bar { position: relative; display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 7px 8px 7px 17px; border: 1px solid #d9cdeb; border-radius: 20px; background: #fff; box-shadow: 0 12px 32px rgba(99, 73, 150, .07); }
+.grocery-search-bar { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; padding: 7px 8px 7px 17px; border: 1px solid #d9cdeb; border-radius: 20px; background: #fff; box-shadow: 0 12px 32px rgba(99, 73, 150, .07); }
 .grocery-search-bar:focus-within { border-color: #9b79d5; box-shadow: 0 0 0 4px rgba(154, 120, 213, .11), 0 14px 35px rgba(99, 73, 150, .1); }
-.grocery-search-bar > svg { width: 22px; height: 22px; fill: none; stroke: #8467b4; stroke-width: 1.8; stroke-linecap: round; }
 .grocery-search-bar input { min-width: 0; padding: 13px 3px; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; }
 .grocery-search-bar input::placeholder { color: #aaa0b7; }
-.grocery-search-bar .button { min-height: 47px; padding-inline: 21px; }
+.grocery-search-bar .grocery-search-submit { width: 42px; min-width: 42px; min-height: 42px; height: 42px; padding: 0; justify-content: center; border-radius: 14px; }
+.grocery-search-submit svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
 .shop-search-progress { display: flex; align-items: center; gap: 13px; margin-top: 20px; padding: 16px 18px; border: 1px solid #e4dcf2; border-radius: 17px; background: #fff; }
 .shop-search-progress strong,
 .shop-search-progress span:not(.spinner) { display: block; }
@@ -552,8 +552,10 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .scan-stage > .error { grid-column: 1 / -1; width: 100%; margin: 0; }
 
 .scan-page.has-result .examples { display: none; }
-.result-popup { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; margin: 0; padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); background: rgba(34, 25, 49, .2); backdrop-filter: blur(10px); animation: appear .22s ease-out; }
-.result-popup-card { width: min(390px, 100%); padding: 17px; border: 1px solid rgba(255, 255, 255, .7); border-radius: 29px; background: rgba(255, 255, 255, .78); box-shadow: 0 24px 70px rgba(38, 23, 64, .24); backdrop-filter: blur(24px); }
+.result-popup { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; margin: 0; padding: max(24px, env(safe-area-inset-top)) 18px max(24px, env(safe-area-inset-bottom)); background: rgba(38, 25, 62, .13); backdrop-filter: blur(13px); animation: appear .22s ease-out; }
+.result-popup-card { position: relative; width: min(390px, 100%); padding: 17px; border: 1px solid rgba(255, 255, 255, .74); border-radius: 29px; background: linear-gradient(145deg, rgba(250, 248, 255, .62), rgba(231, 224, 252, .48)); box-shadow: 0 24px 70px rgba(45, 28, 80, .22), inset 0 1px 0 rgba(255, 255, 255, .7); backdrop-filter: blur(30px) saturate(135%); }
+.result-popup-close { position: absolute; top: 13px; right: 13px; z-index: 2; width: 38px; height: 38px; display: grid; place-items: center; padding: 0; border: 1px solid rgba(255, 255, 255, .76); border-radius: 50%; background: rgba(255, 255, 255, .4); color: #4b3482; box-shadow: 0 6px 20px rgba(67, 41, 116, .14); backdrop-filter: blur(14px); }
+.result-popup-close .icon { width: 18px; height: 18px; }
 .result-legend { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 5px; border-radius: 999px; background: var(--surface-highest); color: #4d4859; font-size: 10px; text-align: center; }
 .result-legend span { padding: 6px 4px; border-radius: 999px; white-space: nowrap; }
 .result-legend .selected { background: white; color: var(--primary); box-shadow: 0 2px 8px rgba(75, 35, 191, .06); }
@@ -578,12 +580,12 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .verdict-card.vegetarian { background: #72782c; color: white; }
 .verdict-card.uncertain { background: #9a6415; color: white; }
 .verdict-card.non_vegetarian { background: #a62c28; color: white; }
-.minimal-product { display: block; margin: 3px 0 12px; padding: 0; text-align: center; }
+.minimal-product { display: block; margin: 3px 0 12px; padding: 0 42px; text-align: center; }
 .minimal-product h2 { margin: 0; font-size: 17px; }
 .minimal-verdict { min-height: 225px; grid-template-columns: 1fr; place-items: center; align-content: center; gap: 13px; padding: 27px 20px; text-align: center; }
-.minimal-verdict.buy { background: rgba(22, 116, 73, .88); }
-.minimal-verdict.dont-buy { background: rgba(179, 50, 50, .88); }
-.minimal-verdict.check { background: rgba(168, 108, 19, .88); }
+.minimal-verdict.buy { background: linear-gradient(145deg, rgba(18, 121, 81, .9), rgba(54, 157, 116, .82)); }
+.minimal-verdict.dont-buy { background: linear-gradient(145deg, rgba(174, 49, 61, .9), rgba(224, 91, 90, .82)); }
+.minimal-verdict.check { background: linear-gradient(145deg, rgba(106, 74, 183, .9), rgba(180, 119, 38, .82)); }
 .minimal-verdict .verdict-icon { width: 72px; height: 72px; }
 .minimal-verdict .verdict-icon .icon { width: 42px; height: 42px; }
 .minimal-verdict h3 { margin: 0; font-size: clamp(38px, 10vw, 58px); letter-spacing: -1.8px; }
@@ -850,10 +852,9 @@ dialog .consent { font-size: 10px; }
   .home-page { padding-top: 18px; }
   .grocery-search { padding: 20px 16px 16px; border-radius: 24px; }
   .grocery-search-heading h2 { margin-bottom: 15px; font-size: 23px; }
-  .grocery-search-bar { grid-template-columns: 21px minmax(0, 1fr); padding: 7px 10px 7px 13px; border-radius: 18px; }
-  .grocery-search-bar > svg { width: 20px; }
+  .grocery-search-bar { grid-template-columns: minmax(0, 1fr) auto; padding: 7px 8px 7px 13px; border-radius: 18px; }
   .grocery-search-bar input { padding: 12px 2px; font-size: 15px; }
-  .grocery-search-bar .button { grid-column: 1 / -1; width: 100%; min-height: 45px; }
+  .grocery-search-bar .grocery-search-submit { width: 40px; min-width: 40px; min-height: 40px; height: 40px; }
   .translation-summary { grid-template-columns: 1fr 25px 1fr; gap: 6px; padding: 14px 13px; }
   .translation-summary strong { font-size: 13px; }
   .translation-summary svg { width: 18px; }

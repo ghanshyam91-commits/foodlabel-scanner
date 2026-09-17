@@ -87,9 +87,12 @@ class ShopSearchUnitTests(unittest.TestCase):
         self.assertIsNone(_validated_logo_url('ah', 'https://example.com/logo.svg'))
 
     def test_vegan_confidence_is_conservative_and_name_based(self):
-        self.assertEqual(_vegan_confidence('Vegan plantaardige haverdrink')[0], 92)
+        self.assertEqual(_vegan_confidence('Vegan plantaardige haverdrink')[0], 94)
         self.assertEqual(_vegan_confidence('Volle melk')[0], 8)
         self.assertLess(_vegan_confidence('Vegetarische burger')[0], 65)
+        self.assertEqual(_vegan_confidence('Biologische pasta', match_score=3)[0], 48)
+        self.assertEqual(_vegan_confidence('Vegetarische burger', 'vegetarian_with_eggs')[0], 92)
+        self.assertEqual(_vegan_confidence('Kipfilet', 'non_vegetarian')[0], 96)
 
     def test_gemini_translation_uses_key_header_and_structured_output(self):
         response_body = {'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': json.dumps({
@@ -135,7 +138,7 @@ class ShopSearchUnitTests(unittest.TestCase):
         self.assertFalse(data['results'][0]['product_url_is_exact'])
         self.assertTrue(data['results'][1]['product_url_is_exact'])
         self.assertEqual(data['results'][0]['logo_url'], '/api/shop-logo/ah/')
-        self.assertEqual(data['results'][0]['vegan_confidence'], 92)
+        self.assertEqual(data['results'][0]['vegan_confidence'], 94)
         self.assertEqual(data['location_name'], 'Nijmegen')
         self.assertEqual(data['stores_without_matches'], 1)
         self.assertNotIn('aldi', [row['code'] for row in data['results']])
