@@ -76,6 +76,7 @@ DJANGO_ALLOWED_HOSTS=<exact Railway/custom hostname>
 DJANGO_CSRF_TRUSTED_ORIGINS=https://<exact hostname>
 GEMINI_API_KEY=<server-side API key>
 GEMINI_MODEL=gemini-3.1-flash-lite
+USD_TO_INR_RATE=90
 SCANNER_ACCESS_CODE=<private passcode with at least 16 characters>
 REDIS_URL=<Redis connection string>
 TRUST_PROXY_SSL=1

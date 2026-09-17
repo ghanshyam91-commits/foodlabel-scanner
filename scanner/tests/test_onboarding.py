@@ -33,7 +33,8 @@ class PreferenceTests(TestCase):
         root = Path(__file__).parents[1]
         html = (root / 'templates/scanner/index.html').read_text()
         script = (root / 'static/scanner/app.js').read_text()
-        self.assertIn('class="glow-scanner"', html)
+        self.assertIn('class="scan-orb"', html)
+        self.assertIn('class="scan-viewfinder"', html)
         self.assertIn('class="icon-button top-settings"', html)
         self.assertNotIn('id="analyze-button"', html)
         for emoji in ['⚙', '⌂', '▤', '⌗']:

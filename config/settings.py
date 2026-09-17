@@ -64,6 +64,9 @@ DATA_UPLOAD_MAX_NUMBER_FILES = 1
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 8
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+# Display-only conversion for the usage estimate. Keep configurable because the
+# provider bills in USD and exchange rates change independently of scan usage.
+USD_TO_INR_RATE = max(0.0, float(os.environ.get('USD_TO_INR_RATE', '90')))
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
 GOOGLE_AUTH_CONFIGURED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
