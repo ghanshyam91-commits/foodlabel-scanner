@@ -19,7 +19,7 @@
   }
   function setBusy(busy) {
     state.busy=busy; $('progress').hidden=!busy;
-    ['analyze-button','camera-button','upload-button','remove-photo'].forEach(id => $(id).disabled=busy);
+    ['camera-button','scan-launch','remove-photo'].forEach(id => {if($(id))$(id).disabled=busy;});
     document.querySelectorAll('[data-example],input[name="preference"]').forEach(e=>e.disabled=busy);
   }
   function changePage(page) {
@@ -30,21 +30,23 @@
   }
   async function loadUsage(){try{const u=await api('/api/usage/');$('usage-scans').textContent=u.scans;$('usage-cost').textContent='$'+Number(u.estimated_usd).toFixed(4);$('usage-model').textContent=u.model;$('usage-tokens').textContent=u.input_tokens.toLocaleString()+' input · '+u.output_tokens.toLocaleString()+' output tokens';const o=document.querySelector('.usage-orbit');o?.classList.remove('pulse');requestAnimationFrame(()=>o?.classList.add('pulse'));}catch{}}
   function clearPhoto() {
-    $('capture-hint').replaceChildren(text('strong','The ingredients side, please.'),text('p','Keep the whole list sharp and in frame.'));
+    $('capture-hint').replaceChildren(text('strong','Tap to scan'),text('p','Use the full ingredients side of the package.'));
     if(state.url)URL.revokeObjectURL(state.url);
     state.file=null;state.url=null;$('preview').removeAttribute('src');$('preview').hidden=true;
-    $('camera-illustration').hidden=false;$('capture-hint').hidden=false;$('scan-options').hidden=true;
+    $('camera-illustration').hidden=false;$('capture-hint').hidden=false;
     $('remove-photo').hidden=true;$('camera-input').value='';$('upload-input').value='';
   }
-  function selectPhoto(file) {
+  async function selectPhoto(file) {
     if(!file)return;
+    changePage('scan');
     $('error').hidden=true;
     if(!['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(file.type)&&!(/\.(heic|heif)$/i.test(file.name))){showError('Use JPEG, PNG, WebP, HEIC or HEIF.');return;}
     if(file.size>8*1024*1024){showError('Choose a photo smaller than 8 MB.');return;}
     clearPhoto();state.file=file;state.url=URL.createObjectURL(file);
     $('preview').src=state.url;$('preview').hidden=false;$('camera-illustration').hidden=true;
-    $('capture-hint').hidden=true;$('scan-options').hidden=false;$('remove-photo').hidden=false;
+    $('capture-hint').hidden=true;$('remove-photo').hidden=false;
     state.result=null;$('result').hidden=true;
+    await scan();
   }
   function listInto(id, values) { const host=$(id);host.replaceChildren();values.forEach(v=>host.append(text('li',v))); }
   function setIngredientLanguage(language){state.ingredientLanguage=language;document.querySelectorAll('[data-ingredients-lang]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ingredientsLang===language)));document.querySelectorAll('.ingredient-english').forEach(e=>e.hidden=language!=='english');document.querySelectorAll('.ingredient-original').forEach(e=>e.hidden=language!=='original');}
@@ -81,7 +83,8 @@
     $('error').hidden=true;
     if(!state.file)return showError('Take or upload a photo first.');
     if(!hasConsent()){changePage('settings');toast('Enable photo processing permission to use AI scanning.');return;}
-    if(!state.config?.ai_configured)return showError('Scanning is not configured. The app owner needs to add GEMINI_API_KEY. The examples are available below.');
+    if(!state.config)await configure();
+    if(!state.config?.ai_configured)return showError('Scanning is not configured yet.');
     if(state.config.access_required&&!state.config.unlocked){$('access-dialog').showModal();return;}
     const form=new FormData();form.append('photo',state.file);form.append('preference',preference());form.append('consent','yes');
     state.result=null;$('result').hidden=true;setBusy(true);
@@ -119,10 +122,8 @@
       $('logout-button').hidden=!(c.auth_required&&c.authenticated);
     }catch{showError('Cannot reach the app server. Check your connection and refresh.');}
   }
-  $('camera-button').addEventListener('click',()=>$('camera-input').click());$('upload-button').addEventListener('click',()=>$('upload-input').click());
-  ['camera-input','upload-input'].forEach(id=>$(id).addEventListener('change',e=>selectPhoto(e.target.files[0])));
-  $('remove-photo').addEventListener('click',clearPhoto);$('analyze-button').addEventListener('click',scan);
-  $('privacy-open').addEventListener('click',()=>changePage('about'));$('save-result').addEventListener('click',saveResult);
+  ['camera-input','upload-input'].forEach(id=>$(id).addEventListener('change',async e=>{await selectPhoto(e.target.files[0]);}));
+  $('remove-photo').addEventListener('click',clearPhoto);$('save-result').addEventListener('click',saveResult);
   document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>changePage(b.dataset.page)));
   document.querySelectorAll('[data-ingredients-lang]').forEach(b=>b.addEventListener('click',()=>setIngredientLanguage(b.dataset.ingredientsLang)));
   document.querySelectorAll('[data-example]').forEach(b=>b.addEventListener('click',async()=>{
@@ -167,15 +168,17 @@
     try{localStorage.setItem('foodlens.preference',p);localStorage.setItem('foodlens.onboarding.v1','done');}catch{toast('Settings could not be saved. You may see setup again next visit.');}
     updateHome();$('onboarding-dialog').close();changePage('home');
   });
-  $('scan-launch').addEventListener('click',()=>{if(!state.busy)$('scan-dialog').showModal();});
+  function openScanDialog(){if(state.busy)return;if(!hasConsent()){changePage('settings');toast('Enable photo processing permission before scanning.');return;}$('scan-dialog').showModal();}
+  $('scan-launch').addEventListener('click',openScanDialog);
+  $('camera-button').addEventListener('click',openScanDialog);
   $('sheet-close').addEventListener('click',()=>$('scan-dialog').close());
   for(const [button,input] of [['sheet-camera','camera-input'],['sheet-gallery','upload-input']]){
-    $(button).addEventListener('click',()=>{$('scan-dialog').close();changePage('scan');$(input).click();});
+    $(button).addEventListener('click',()=>{$('scan-dialog').close();$(input).click();});
   }
   $('preview').addEventListener('error',()=>{
     if(!state.file)return;
     $('preview').hidden=true;$('capture-hint').hidden=false;
-    $('capture-hint').replaceChildren(text('strong','Photo selected'),text('p','Preview unavailable on this browser. The server will convert HEIC when you scan.'));
+    $('capture-hint').replaceChildren(text('strong','Photo selected'),text('p','Preview unavailable. Scanning continues in the background.'));
   });
   updateHome();changePage('home');
   let onboarded=false;

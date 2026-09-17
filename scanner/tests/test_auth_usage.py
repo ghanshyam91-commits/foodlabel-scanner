@@ -33,7 +33,7 @@ class TemporaryPinTests(TestCase):
         self.assertEqual(self.client.post('/auth/pin/temporary/',{'pin':'1234'}).status_code,403)
     def test_default_pin_unlocks_app(self):
         self.assertEqual(self.client.post('/auth/pin/temporary/',{'pin':'0608'}).status_code,200)
-        self.assertContains(self.client.get('/'),'Dutch labels. In English.')
+        self.assertContains(self.client.get('/'),'Explore your next shop')
     @override_settings(GOOGLE_AUTH_CONFIGURED=True)
     def test_temporary_pin_disabled_when_google_is_ready(self):
         self.assertEqual(self.client.post('/auth/pin/temporary/',{'pin':'0608'}).status_code,403)

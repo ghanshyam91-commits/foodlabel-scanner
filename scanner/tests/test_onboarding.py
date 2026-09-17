@@ -29,6 +29,17 @@ class PreferenceTests(TestCase):
             self.assertIn(marker, html)
         self.assertNotIn('id="consent"', html)
 
+    def test_scan_ui_is_centered_icon_first_and_has_no_emoji_navigation(self):
+        root = Path(__file__).parents[1]
+        html = (root / 'templates/scanner/index.html').read_text()
+        script = (root / 'static/scanner/app.js').read_text()
+        self.assertIn('class="glow-scanner"', html)
+        self.assertIn('class="icon-button top-settings"', html)
+        self.assertNotIn('id="analyze-button"', html)
+        for emoji in ['⚙', '⌂', '▤', '⌗']:
+            self.assertNotIn(emoji, html)
+        self.assertIn('await scan();', script)
+
 
 class HeicTests(TestCase):
     def test_heic_to_metadata_free_jpeg(self):
