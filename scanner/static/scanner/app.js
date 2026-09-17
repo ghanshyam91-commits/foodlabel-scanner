@@ -182,21 +182,20 @@
   function setShopSearchBusy(busy) {
     state.shopSearchBusy = busy;
     $('shop-search-progress').hidden = !busy;
-    ['product-search-button', 'use-location', 'product-search-query', 'manual-location'].forEach((id) => {
+    ['product-search-button', 'product-search-query', 'manual-location'].forEach((id) => {
       $(id).disabled = busy;
     });
   }
 
-  function setLocationLabels(searchLabel, headerLabel = searchLabel) {
-    $('location-label').textContent = searchLabel;
-    $('header-location-label').textContent = headerLabel;
+  function setLocationLabel(label) {
+    $('header-location-label').textContent = label;
   }
 
   function locationError(message) {
     $('manual-location-wrap').hidden = false;
     $('shop-search-error').textContent = message;
     $('shop-search-error').hidden = false;
-    setLocationLabels('Location unavailable', 'Set location');
+    setLocationLabel('Set location');
     $('manual-location').focus();
   }
 
@@ -208,7 +207,7 @@
         reject(error);
         return;
       }
-      setLocationLabels('Finding your location…', 'Finding…');
+      setLocationLabel('Finding…');
       $('shop-search-error').hidden = true;
       navigator.geolocation.getCurrentPosition((position) => {
         state.searchLocation = {
@@ -217,7 +216,7 @@
         };
         $('manual-location').value = '';
         $('manual-location-wrap').hidden = true;
-        setLocationLabels('Current location ready', 'Current location');
+        setLocationLabel('Current location');
         resolve(state.searchLocation);
       }, () => {
         const error = new Error('Allow location access, or enter a Dutch city or postcode.');
@@ -619,17 +618,9 @@
 
   function updateHome() {
     const current = preference();
-    const friendly = names[current];
-    const range = current === 'vegan' ? 'vegan' : (current === 'non_vegetarian' ? 'full food' : 'vegetarian');
     document.querySelector('.shop-card').href = current === 'non_vegetarian' ? 'https://www.ah.nl/' : 'https://www.ah.nl/producten/20128/vegetarisch-vegan-en-plantaardig';
-    $('home-preference').textContent = `${friendly} picks, with the label always in reach.`;
     $('header-preference-label').textContent = badgeNames[current];
     $('header-preference').dataset.preference = current;
-    $('search-preference').textContent = friendly;
-    document.querySelectorAll('.shop-card-copy').forEach((element, index) => {
-      const suffix = index === 0 ? ' & Terra line' : (index === 1 ? ' & Veggie Chef' : ' & Vemondo line');
-      element.textContent = current === 'non_vegetarian' ? 'Browse the full food range' : `Look for ${range} ranges${suffix}`;
-    });
   }
 
   function openScanDialog() {
@@ -668,20 +659,19 @@
     event.preventDefault();
     await searchProducts();
   });
-  ['use-location', 'header-location'].forEach((id) => $(id).addEventListener('click', async () => {
+  $('header-location').addEventListener('click', async () => {
     try {
       await requestCurrentLocation();
       toast('Current location is ready for nearby comparisons.');
     } catch {}
-  }));
+  });
   $('manual-location-toggle').addEventListener('click', () => {
     $('manual-location-wrap').hidden = false;
     $('manual-location').focus();
   });
   $('manual-location').addEventListener('input', () => {
     const manual = $('manual-location').value.trim();
-    if (manual) setLocationLabels('Use my current location instead', manual);
-    else setLocationLabels('Use my current location', 'Use location');
+    setLocationLabel(manual || 'Use location');
   });
   document.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => changePage(button.dataset.page)));
   document.querySelectorAll('[data-ingredients-lang]').forEach((button) => button.addEventListener('click', () => setIngredientLanguage(button.dataset.ingredientsLang)));
