@@ -32,6 +32,7 @@
     <symbol id="i-check" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="m8 12 2.5 2.5L16 9"/></symbol>
     <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v6m0-10v.1"/></symbol>
     <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="m8.3 10.8 7.4-4.5m-7.4 6.9 7.4 4.5"/></symbol>
+    <symbol id="i-location" viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
     <symbol id="i-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
   </svg>
 
@@ -47,6 +48,14 @@
       <button class="icon-button top-settings" type="button" data-page="settings" aria-label="Settings"><svg class="icon"><use href="#i-settings"/></svg></button>
       <span class="profile-dot" aria-hidden="true"><svg class="icon"><use href="#i-user"/></svg></span>
     </div>
+    <div class="header-context" aria-label="Current preference and location">
+      <button id="header-preference" class="header-chip preference-chip" type="button" data-page="settings" data-preference="vegan" aria-label="Change dietary preference">
+        <svg class="icon"><use href="#i-leaf"/></svg><span id="header-preference-label">Vegan</span>
+      </button>
+      <button id="header-location" class="header-chip location-chip" type="button" aria-label="Use current location">
+        <svg class="icon"><use href="#i-location"/></svg><span id="header-location-label" aria-live="polite">Use location</span>
+      </button>
+    </div>
   </header>
 
   <main id="main">
@@ -56,25 +65,6 @@
         <h1>A little clarity.<br><span>In every basket.</span></h1>
         <p><span id="home-preference">Food that fits you.</span> Decipher Dutch food packaging in seconds.</p>
       </div>
-
-      <section class="home-scan" aria-labelledby="home-scan-title">
-        <div class="ambient-halo" aria-hidden="true"></div>
-        <button id="home-scan-button" class="scan-orb" type="button" aria-label="Scan a Dutch food label">
-          <svg class="icon"><use href="#i-scan"/></svg><span class="live-dot"></span>
-        </button>
-        <h2 id="home-scan-title">Scan Dutch food label</h2>
-        <p>Point your camera at the full ingredients list or packaging.</p>
-        <button id="home-upload-button" class="gallery-pill" type="button"><svg class="icon"><use href="#i-upload"/></svg>Choose from gallery</button>
-      </section>
-
-      <section class="preference-strip" aria-label="Current scan settings">
-        <div class="preference-pills">
-          <span class="filter-pill active"><svg class="icon"><use href="#i-leaf"/></svg><span id="active-preference-pill">Vegan</span></span>
-          <span class="filter-pill">Dutch labels</span>
-          <span class="filter-pill">English output</span>
-        </div>
-        <button class="inline-link" type="button" data-page="settings">Preferences ↗</button>
-      </section>
 
       <section class="grocery-search" aria-labelledby="grocery-search-title">
         <div class="grocery-search-heading">
