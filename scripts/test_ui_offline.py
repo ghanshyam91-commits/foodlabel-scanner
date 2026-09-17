@@ -27,7 +27,8 @@ def fixture(name, preference='vegetarian_no_eggs'):
 
 SHOP_FIXTURE = {
     'query_en': 'oat milk', 'query_nl': 'haverdrink', 'preference_query_nl': 'haverdrink',
-    'preference': 'vegan', 'preference_label': 'Vegan', 'location_label': 'current location',
+    'preference': 'vegan', 'preference_label': 'Vegan', 'location_label': 'Nijmegen',
+    'location_name': 'Nijmegen', 'stores_without_matches': 1,
     'price_data_updated': '2026-09-17', 'eur_to_inr': 100, 'exchange_rate_date': '2026-09-17',
     'notice': 'Verify current price and package ingredients before buying.',
     'nearby_stores': [
@@ -39,13 +40,20 @@ SHOP_FIXTURE = {
          'product_name': 'AH Terra vegan haverdrink', 'amount': '1 l', 'price_eur': 1.25,
          'price_inr': 125, 'unit_price_eur': 1.25, 'unit_price_inr': 125, 'unit': 'l',
          'dietary_status': 'compatible', 'dietary_note': 'Explicitly marked vegan; verify the package.',
-         'product_url': 'https://www.ah.nl/', 'search_url': 'https://www.ah.nl/',
+         'vegan_confidence': 92, 'vegan_confidence_note': 'Explicitly marked plant-based.',
+         'product_url': '', 'product_url_is_exact': False,
+         'search_url': 'https://www.ah.nl/zoeken?query=haverdrink', 'map_url': 'https://www.openstreetmap.org/',
          'is_lowest_pack': True, 'is_best_value': True},
         {'code': 'jumbo', 'supermarket': 'Jumbo', 'distance_km': 1.2, 'available': True,
          'product_name': 'Jumbo haverdrink', 'amount': '1 l', 'price_eur': 1.49,
          'price_inr': 149, 'unit_price_eur': 1.49, 'unit_price_inr': 149, 'unit': 'l',
          'dietary_status': 'uncertain', 'dietary_note': 'Scan the package before buying.',
-         'product_url': 'https://www.jumbo.com/', 'search_url': 'https://www.jumbo.com/',
+         'vegan_confidence': 72, 'vegan_confidence_note': 'Likely plant-based from the name.',
+         'product_url': 'https://www.jumbo.com/producten/jumbo-haverdrink-1-l', 'product_url_is_exact': True,
+         'search_url': 'https://www.jumbo.com/zoeken?searchTerms=haverdrink', 'map_url': 'https://www.openstreetmap.org/',
+         'is_lowest_pack': False, 'is_best_value': False},
+        {'code': 'aldi', 'supermarket': 'ALDI', 'distance_km': 1.8, 'available': False,
+         'search_url': 'https://www.aldi.nl/zoeken.html?query=haverdrink',
          'is_lowest_pack': False, 'is_best_value': False},
     ],
 }
@@ -91,7 +99,18 @@ with sync_playwright() as playwright:
         page.wait_for_function('!document.getElementById("shop-search-results").hidden')
         assert page.locator('#translated-query').inner_text() == '“haverdrink”'
         assert page.locator('.shop-price-card').count() == 2
+        assert page.locator('.shop-price-card', has_text='ALDI').count() == 0
+        assert page.locator('.vegan-confidence').count() == 3
         assert '₹125' in page.locator('#cheapest-result').inner_text()
+        assert page.locator('.shop-price-card', has_text='Jumbo').get_by_role('link', name='View exact product').count() == 1
+        assert page.locator('.shop-price-card', has_text='Albert Heijn').get_by_text('Exact page unavailable').count() == 1
+        assert page.evaluate("localStorage.getItem('foodlens.shop-location.v1')") == 'Nijmegen'
+        page.locator('.shop-price-card', has_text='Albert Heijn').get_by_role('button', name='Add to buy list').click()
+        page.locator('.shop-price-card', has_text='Jumbo').get_by_role('button', name='Add to buy list').click()
+        page.locator('[data-page="history"]').click()
+        assert page.locator('.buy-store-group').count() == 2
+        assert page.locator('#buy-list-count').inner_text() == '2'
+        page.locator('[data-page="home"]').click()
         if width == 390:
             page.screenshot(path=str(DOCS / 'foodlens-search-mobile.png'), full_page=True)
         else:

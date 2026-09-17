@@ -7,10 +7,13 @@ A standalone, mobile-first Django app for photographing Dutch food labels, trans
 ## What is included
 
 - Camera capture / photo upload, preview, metadata stripping and image validation.
-- English grocery search with Dutch query translation, current-location or city/postcode lookup,
-  nearby supermarket comparison, direct retailer links, and EUR/INR prices.
+- English grocery search with Dutch query translation, a remembered city/location name,
+  nearby supermarket comparison, retailer logos, verified exact-product links where available,
+  and EUR/INR prices. Stores without a matching item are left out of the results.
 - Price comparisons use the reusable Checkjebon.nl catalogue; Gemini translates the query but
   never supplies or invents a price. Nearby-chain distances come from OpenStreetMap.
+- A browser-local buy list can add comparison results, group them by supermarket, track quantity
+  and bought status, show per-store totals, and open directions while shopping.
 - Dutch-to-English text extraction and translation using a configurable Gemini model.
 - Separate deterministic dietary rules applied to the **original** ingredient text.
 - Vegan-compatible, vegetarian-not-vegan, non-vegetarian ingredient found, and uncertain results.
@@ -104,6 +107,8 @@ Signed-cookie sessions hold only the private-beta access flag. There is no accou
 - `POST /api/scan/`: multipart `photo`, `preference`, `consent=yes`; CSRF required.
 - `POST /api/shop-search/`: form fields `query`, `preference`, and either `lat` + `lon` or
   `location`; returns up to ten nearby-chain comparisons with source timestamps and EUR/INR prices.
+- `GET /api/shop-logo/{retailer}/`: bounded same-origin proxy for catalogue retailer marks, with a
+  local brand-colour fallback and a one-day public cache.
 - `GET /api/examples/{oats|chocolate|sweets|bread}/?preference=vegan`: clearly fictional examples.
 - `GET /health/`: process health, not AI readiness.
 
@@ -112,9 +117,13 @@ Signed-cookie sessions hold only the private-beta access flag. There is no accou
 An AI reading error can still cause a wrong result. “Vegan-compatible ingredients” is not a certification and cannot verify manufacturing aids. Unknown or missing ingredient text blocks positive results. Do not use this app for medical or allergy-safety decisions. See `docs/SAFETY.md` and `docs/PRIVACY.md`.
 
 Supermarket prices are catalogue snapshots and may differ by branch, delivery area, loyalty offer,
-promotion, or time. The dietary badge on shopping results is deliberately conservative and uses the
-product name only; it is not a substitute for scanning the package. Browser coordinates are rounded
-before submission, used to find nearby chains, and are not saved by FoodLens.
+promotion, or time. Dietary matching and the colour-coded vegan-confidence percentage are
+deliberately conservative name-only heuristics; neither is a substitute for scanning the package.
+Browser coordinates are rounded before submission and are not stored. After a successful lookup,
+only the resolved location name is remembered in local browser storage until the user changes it.
+Some retailers do not publish durable product pages or reject direct visits; FoodLens only labels a
+destination “View exact product” for verified exact links, labels usable fallbacks as store searches,
+and shows “Exact page unavailable” instead of sending the user to a known blocked or misleading page.
 
 ## Reference documentation
 

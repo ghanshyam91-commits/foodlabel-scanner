@@ -18,6 +18,13 @@ class ViewTests(SimpleTestCase):
         response=self.client.get('/api/examples/oats/');self.assertTrue(response.json()['is_demo'])
     def test_no_cache_header(self):self.assertIn('no-store',self.client.get('/').headers['Cache-Control'])
     def test_geolocation_is_limited_to_same_origin(self):self.assertEqual(self.client.get('/').headers['Permissions-Policy'],'camera=(self), microphone=(), geolocation=(self)')
+    @patch('scanner.views.load_retailer_logo',return_value=(b'\x89PNG\r\n\x1a\nlogo','image/png'))
+    def test_shop_logo_is_same_origin_and_cacheable(self,_):
+        response=self.client.get('/api/shop-logo/ah/')
+        self.assertEqual(response.status_code,200);self.assertEqual(response.headers['Content-Type'],'image/png')
+        self.assertEqual(response.headers['X-FoodLens-Logo-Source'],'catalogue')
+        self.assertIn('max-age=86400',response.headers['Cache-Control'])
+        self.assertEqual(self.client.get('/api/shop-logo/not-a-store/').status_code,404)
     def test_no_photo(self):self.assertEqual(self.client.post('/api/scan/',{'consent':'yes'}).status_code,400)
     def test_no_consent(self):self.assertEqual(self.client.post('/api/scan/').status_code,400)
     def test_csrf_enforced(self):self.assertEqual(Client(enforce_csrf_checks=True).post('/api/scan/').status_code,403)

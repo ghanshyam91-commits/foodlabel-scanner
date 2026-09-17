@@ -5,8 +5,9 @@ from unittest.mock import patch
 import httpx
 
 from scanner.shop_search import (
-    TranslationResult, _dietary_status, _size_details, build_shop_search,
-    find_product, translate_query, validate_query,
+    TranslationResult, _dietary_status, _safe_product_url, _size_details,
+    _validated_logo_url, _vegan_confidence, build_shop_search, find_product,
+    translate_query, validate_query,
 )
 
 OriginalClient = httpx.Client
@@ -54,6 +55,27 @@ class ShopSearchUnitTests(unittest.TestCase):
         result = find_product(products, ['500 g rijst'], 'non_vegetarian', (.5, 'kg'))
         self.assertEqual(result['raw']['n'], 'Witte snelkookrijst')
 
+    def test_exact_product_links_are_only_promised_for_verified_retailers(self):
+        exact = _safe_product_url(
+            'jumbo', 'https://www.jumbo.com/producten/', 'vegan-haverdrink',
+            'https://www.jumbo.com/zoeken?searchTerms=haverdrink')
+        guarded = _safe_product_url(
+            'ah', 'https://www.ah.nl/producten/product/', 'wi1/haverdrink',
+            'https://www.ah.nl/zoeken?query=haverdrink')
+        self.assertEqual(exact, ('https://www.jumbo.com/producten/vegan-haverdrink', True))
+        self.assertEqual(guarded, ('', False))
+
+    def test_logo_proxy_only_allows_catalogue_or_official_hosts(self):
+        self.assertEqual(_validated_logo_url('ah', '/assets/ah.svg'), 'https://www.checkjebon.nl/assets/ah.svg')
+        self.assertEqual(_validated_logo_url('ah', 'https://www.ah.nl/assets/logo.svg'), 'https://www.ah.nl/assets/logo.svg')
+        self.assertEqual(_validated_logo_url('ah', 'https://static.ah.nl/logo.svg'), 'https://static.ah.nl/logo.svg')
+        self.assertIsNone(_validated_logo_url('ah', 'https://example.com/logo.svg'))
+
+    def test_vegan_confidence_is_conservative_and_name_based(self):
+        self.assertEqual(_vegan_confidence('Vegan plantaardige haverdrink')[0], 92)
+        self.assertEqual(_vegan_confidence('Volle melk')[0], 8)
+        self.assertLess(_vegan_confidence('Vegetarische burger')[0], 65)
+
     def test_gemini_translation_uses_key_header_and_structured_output(self):
         response_body = {'candidates': [{'finishReason': 'STOP', 'content': {'parts': [{'text': json.dumps({
             'query_nl': 'bruine rijst', 'preference_query_nl': 'bruine rijst',
@@ -69,28 +91,40 @@ class ShopSearchUnitTests(unittest.TestCase):
         self.assertEqual(seen[0].headers['x-goog-api-key'], 'secret-key')
         self.assertNotIn('secret-key', str(seen[0].url))
 
+    @patch('scanner.shop_search.reverse_geocode_location', return_value='Nijmegen')
     @patch('scanner.shop_search.eur_inr_rate', return_value=(100.0, '2026-09-17'))
     @patch('scanner.shop_search.load_catalog')
     @patch('scanner.shop_search.nearby_supermarkets')
     @patch('scanner.shop_search.translate_query')
-    def test_builds_nearby_comparison_and_marks_cheapest(self, mock_translate, mock_nearby, mock_catalogue, _):
+    def test_builds_nearby_comparison_and_marks_cheapest(self, mock_translate, mock_nearby, mock_catalogue, _, mock_reverse):
         mock_translate.return_value = TranslationResult('haverdrink', 'haverdrink', ('havermelk',), 'test')
         mock_nearby.return_value = [
             {'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .8, 'map_url': 'https://www.openstreetmap.org/'},
             {'name': 'Jumbo', 'code': 'jumbo', 'distance_km': 1.2, 'map_url': 'https://www.openstreetmap.org/'},
+            {'name': 'ALDI', 'code': 'aldi', 'distance_km': 1.8, 'map_url': 'https://www.openstreetmap.org/'},
         ]
         mock_catalogue.return_value = ([
             {'n': 'ah', 'u': 'https://www.ah.nl/producten/product/', 'd': [
                 {'n': 'AH Terra Vegan haverdrink', 'l': 'wi1/haverdrink', 'p': 1.25, 's': '1 l'}]},
             {'n': 'jumbo', 'u': 'https://www.jumbo.com/producten/', 'd': [
                 {'n': 'Jumbo Vegan haverdrink', 'l': 'vegan-haverdrink', 'p': 1.49, 's': '1 l'}]},
+            {'n': 'aldi', 'u': 'https://www.aldi.nl/', 'd': []},
         ], '2026-09-17T01:00:00Z')
         data = build_shop_search('oat milk', 'vegan', '', '', lat=51.84, lon=5.86)
         self.assertEqual(data['results'][0]['supermarket'], 'Albert Heijn')
         self.assertTrue(data['results'][0]['is_lowest_pack'])
         self.assertTrue(data['results'][0]['is_best_value'])
         self.assertEqual(data['results'][0]['price_inr'], 125)
-        self.assertTrue(data['results'][0]['product_url'].startswith('https://www.ah.nl/'))
+        self.assertEqual(data['results'][0]['product_url'], '')
+        self.assertFalse(data['results'][0]['product_url_is_exact'])
+        self.assertTrue(data['results'][1]['product_url_is_exact'])
+        self.assertEqual(data['results'][0]['logo_url'], '/api/shop-logo/ah/')
+        self.assertEqual(data['results'][0]['vegan_confidence'], 92)
+        self.assertEqual(data['location_name'], 'Nijmegen')
+        self.assertEqual(data['stores_without_matches'], 1)
+        self.assertNotIn('aldi', [row['code'] for row in data['results']])
+        self.assertNotIn('aldi', [store['code'] for store in data['nearby_stores']])
+        mock_reverse.assert_called_once()
 
 
 if __name__ == '__main__':

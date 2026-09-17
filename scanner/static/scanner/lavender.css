@@ -221,6 +221,12 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
   font-weight: 800;
   box-shadow: inset 0 1px 5px rgba(75, 35, 191, .06);
 }
+.shop-monogram img,
+.shop-price-logo img,
+.cheapest-logo img,
+.nearby-store-logo img,
+.buy-store-logo img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.shop-monogram:has(img) { overflow: hidden; padding: 5px; border: 1px solid #e8e0f2; background: #fff; }
 
 .grocery-search {
   position: relative;
@@ -239,10 +245,20 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .grocery-search-bar input { min-width: 0; padding: 13px 3px; border: 0; outline: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; }
 .grocery-search-bar input::placeholder { color: #aaa0b7; }
 .grocery-search-bar .button { min-height: 47px; padding-inline: 21px; }
-.search-location-row { display: flex; justify-content: flex-end; margin-top: 8px; }
-.manual-location { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+.search-location-row { display: flex; align-items: center; gap: 10px; margin: 0 0 13px; padding: 10px 12px; border: 1px solid #e4dcf1; border-radius: 16px; background: rgba(255, 255, 255, .76); }
+.location-current { min-width: 0; display: flex; align-items: center; gap: 8px; margin-right: auto; }
+.location-current > svg { width: 20px; height: 20px; flex: 0 0 auto; fill: none; stroke: var(--primary); stroke-width: 1.8; }
+.location-current small,
+.location-current strong { display: block; }
+.location-current small { color: var(--muted); font-size: 8px; letter-spacing: .8px; }
+.location-current strong { overflow: hidden; max-width: 220px; margin-top: 1px; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
+.location-button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 4px; border: 0; background: transparent; color: var(--primary); font-size: 12px; font-weight: 650; }
+.location-button svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; }
+.location-or { color: #9a90a8; font-size: 10px; }
+.manual-location { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; }
 .manual-location label { color: var(--muted); font-size: 11px; white-space: nowrap; }
 .manual-location input { width: min(320px, 100%); padding: 10px 12px; border: 1px solid #d9cdeb; border-radius: 12px; background: #fff; color: var(--ink); font: inherit; }
+.manual-location > span { color: var(--muted); font-size: 9px; }
 .shop-search-progress { display: flex; align-items: center; gap: 13px; margin-top: 20px; padding: 16px 18px; border: 1px solid #e4dcf2; border-radius: 17px; background: #fff; }
 .shop-search-progress strong,
 .shop-search-progress span:not(.spinner) { display: block; }
@@ -273,12 +289,25 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .shop-price-card.unavailable { background: rgba(255, 255, 255, .65); }
 .shop-price-top { display: flex; align-items: center; gap: 11px; }
 .shop-price-monogram { width: 40px; height: 40px; display: grid; place-items: center; flex: 0 0 40px; border-radius: 13px; background: #f0e9fb; color: var(--primary); font-size: 13px; font-weight: 850; text-transform: uppercase; }
+.shop-price-logo,
+.cheapest-logo,
+.nearby-store-logo,
+.buy-store-logo { display: grid; place-items: center; overflow: hidden; flex: 0 0 auto; border: 1px solid #e8e0f2; background: #fff; }
+.shop-price-logo { width: 42px; height: 42px; padding: 4px; border-radius: 13px; }
+.shop-price-logo .logo-fallback { color: var(--primary); font-size: 12px; font-weight: 850; text-transform: uppercase; }
 .shop-price-top h3 { margin: 0; font-size: 14px; }
 .shop-price-top small { display: block; margin-top: 1px; color: var(--muted); font-size: 9px; }
 .diet-badge { margin-left: auto; padding: 5px 8px; border-radius: 999px; font-size: 8px; font-weight: 750; white-space: nowrap; }
 .diet-badge.compatible { background: #e8f5eb; color: #247445; }
 .diet-badge.uncertain { background: #fff3dc; color: #996015; }
 .diet-badge.excluded { background: #fae8e4; color: #a33e34; }
+.vegan-confidence { width: fit-content; display: inline-flex; align-items: center; gap: 5px; margin-top: 11px; padding: 5px 8px; border: 1px solid transparent; border-radius: 999px; font-size: 9px; font-weight: 700; }
+.vegan-confidence .icon { width: 13px; height: 13px; }
+.vegan-confidence strong { font-size: 10px; }
+.vegan-confidence.green { border-color: #a8dcc0; background: #e5f6ec; color: #176b3c; }
+.vegan-confidence.orange { border-color: #f2c494; background: #fff0df; color: #9a5315; }
+.vegan-confidence.yellow { border-color: #e8d487; background: #fff8d7; color: #7b6511; }
+.vegan-confidence.red { border-color: #ebb0b5; background: #fdebec; color: #a13d47; }
 .shop-product-name { min-height: 38px; margin: 14px 0 2px; color: var(--ink); font-size: 13px; font-weight: 650; line-height: 1.45; }
 .shop-pack-size { margin-bottom: 9px; color: var(--muted); font-size: 9px; }
 .shop-price-card .shop-price { margin-top: auto; padding-top: 9px; }
@@ -290,10 +319,23 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .shop-card-actions { display: flex; align-items: center; gap: 5px; margin-top: auto; }
 .shop-card-actions .button,
 .shop-price-card > .button { min-height: 37px; padding: 8px 12px; text-decoration: none; }
+.shop-card-actions .buy-button { border-color: #ddd1f0; background: var(--primary-soft); color: var(--primary); }
+[data-buy-id]:disabled { cursor: default; opacity: 1; border-color: #b9dfc8; background: #e6f5ec; color: #217044; }
+.product-link-note { display: inline-flex; align-items: center; min-height: 31px; padding: 5px 2px; color: var(--muted); font-size: 9px; font-weight: 650; }
+.cheapest-result .product-link-note { color: #eee6ff; }
 .nearby-details { margin-top: 17px; padding-top: 10px; border-top: 1px solid #e8e0f3; }
 .nearby-details summary { color: var(--primary); }
 .nearby-store-list { display: flex; gap: 7px; flex-wrap: wrap; padding: 8px 0; }
-.nearby-store-chip { padding: 6px 9px; border: 1px solid #e2d9f0; border-radius: 999px; background: #fff; color: #655a73; font-size: 9px; text-decoration: none; }
+.nearby-store-chip { display: inline-flex; align-items: center; gap: 6px; padding: 6px 9px; border: 1px solid #e2d9f0; border-radius: 999px; background: #fff; color: #655a73; font-size: 9px; text-decoration: none; }
+.nearby-store-logo { width: 21px; height: 21px; padding: 2px; border-radius: 7px; }
+.nearby-store-logo .logo-fallback { font-size: 7px; font-weight: 800; }
+.cheapest-store-line { display: flex; align-items: center; gap: 11px; margin-top: 6px; }
+.cheapest-store-line h3 { margin: 0; }
+.cheapest-logo { width: 42px; height: 42px; padding: 4px; border-color: rgba(255, 255, 255, .35); border-radius: 13px; }
+.cheapest-actions { min-width: 155px; display: grid; gap: 8px; }
+.cheapest-result .button.light { border-color: rgba(255, 255, 255, .5); background: rgba(255, 255, 255, .12); color: #fff; }
+.cheapest-result .vegan-confidence { margin-top: 2px; border-color: rgba(255, 255, 255, .35); background: rgba(255, 255, 255, .16); color: #fff; }
+.shop-empty-state { grid-column: 1 / -1; }
 .price-source-note { margin: 13px 2px 0; color: #877d92; font-size: 9px; line-height: 1.65; }
 .price-source-note a { color: var(--primary); }
 
@@ -621,6 +663,41 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .sweets { background: #ffdfdc; color: #9b2722; }
 .bread { background: var(--surface-highest); color: var(--primary); }
 
+.buy-list-panel,
+.saved-scans-panel { max-width: 900px; margin: 0 auto 24px; padding: 25px; border: 1px solid #e5dcf2; border-radius: 27px; background: rgba(255, 255, 255, .86); box-shadow: var(--shadow); }
+.saved-section-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; margin-bottom: 18px; }
+.saved-section-heading h2 { margin: 6px 0 4px; }
+.saved-section-heading p { margin: 0; color: var(--muted); font-size: 11px; }
+.buy-store-group { overflow: hidden; margin-top: 14px; border: 1px solid #e4dcf0; border-radius: 21px; background: #fff; }
+.buy-store-header { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 15px 17px; border-bottom: 1px solid #e8e0f3; background: linear-gradient(135deg, #fbf9ff, #f3edfc); }
+.buy-store-identity { min-width: 0; display: flex; align-items: center; gap: 11px; }
+.buy-store-logo { width: 43px; height: 43px; padding: 4px; border-radius: 13px; }
+.buy-store-logo .logo-fallback { color: var(--primary); font-size: 10px; font-weight: 850; }
+.buy-store-title { min-width: 0; }
+.buy-store-title h3 { margin: 0; font-size: 15px; }
+.buy-store-title span { display: block; margin-top: 2px; color: var(--muted); font-size: 9px; }
+.store-directions { display: inline-block; margin-top: 4px; color: var(--primary); font-size: 9px; font-weight: 700; }
+.buy-store-subtotal { flex: 0 0 auto; color: var(--ink); font-size: 16px; font-weight: 800; text-align: right; }
+.buy-store-subtotal small { display: block; color: #7657b2; font-size: 9px; font-weight: 700; }
+.buy-store-items { padding: 0 17px; }
+.buy-item { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 15px 0; border-bottom: 1px solid #eee8f5; }
+.buy-item:last-child { border-bottom: 0; }
+.buy-item > input { width: 19px; height: 19px; accent-color: var(--primary); }
+.buy-item-copy { min-width: 0; }
+.buy-item-copy strong { display: block; overflow-wrap: anywhere; font-size: 12px; }
+.buy-item-copy span { display: block; margin-top: 3px; color: var(--muted); font-size: 9px; }
+.buy-item-actions { display: flex; align-items: center; justify-content: flex-end; gap: 7px; flex-wrap: wrap; }
+.quantity-control { display: flex; align-items: center; border: 1px solid #ded4ed; border-radius: 999px; background: #faf8fd; }
+.quantity-control button { width: 30px; height: 30px; display: grid; place-items: center; border: 0; background: transparent; color: var(--primary); font-weight: 750; }
+.quantity-control button:disabled { cursor: default; }
+.quantity-control span { min-width: 21px; font-size: 10px; font-weight: 750; text-align: center; }
+.buy-item-actions .text-button { padding: 6px 3px; font-size: 10px; }
+.remove-buy-item { color: #a54852; }
+.buy-item.bought { opacity: .55; }
+.buy-item.bought .buy-item-copy strong { text-decoration: line-through; }
+.saved-scans-panel { margin-bottom: 34px; }
+.saved-scans-panel #clear-history { margin-top: 0; }
+
 .history-page .hero,
 .about-page .hero { padding-top: 30px; }
 .history-item { border: 0; border-radius: 22px; background: white; box-shadow: var(--shadow); }
@@ -651,6 +728,8 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .bottom-nav button .icon { width: 22px; height: 22px; }
 .bottom-nav button > span { font-size: 10px; line-height: 1.2; }
 .bottom-nav button[aria-current="page"] { background: transparent; color: var(--primary); font-weight: 700; }
+.bottom-nav button[data-page="history"] { position: relative; }
+.nav-count { position: absolute !important; top: 3px; right: 20%; min-width: 18px; height: 18px; display: grid !important; place-items: center; padding: 0 5px; border: 2px solid #fff; border-radius: 999px; background: #c44f5b; color: #fff !important; font-size: 9px !important; font-weight: 800; line-height: 1 !important; }
 .bottom-nav .scan-launch {
   position: relative;
   z-index: 2;
@@ -758,9 +837,14 @@ dialog .consent { font-size: 10px; }
   .grocery-search-bar > svg { width: 20px; }
   .grocery-search-bar input { padding: 12px 2px; font-size: 15px; }
   .grocery-search-bar .button { grid-column: 1 / -1; width: 100%; min-height: 45px; }
+  .search-location-row { align-items: center; flex-wrap: wrap; gap: 2px 7px; padding: 10px; }
+  .location-current { flex: 1 0 100%; margin-bottom: 4px; }
+  .location-current strong { max-width: 250px; }
+  .location-or { padding-top: 9px; }
   .manual-location { display: block; }
   .manual-location label { display: block; margin-bottom: 5px; }
   .manual-location input { width: 100%; }
+  .manual-location > span { display: block; margin-top: 5px; }
   .translation-summary { grid-template-columns: 1fr 25px 1fr; gap: 6px; padding: 14px 13px; }
   .translation-summary strong { font-size: 13px; }
   .translation-summary svg { width: 18px; }
@@ -768,6 +852,7 @@ dialog .consent { font-size: 10px; }
   .comparison-meta span { display: block; margin-top: 3px; }
   .cheapest-result { grid-template-columns: 1fr; gap: 14px; padding: 20px; }
   .cheapest-meta { min-width: 0; }
+  .cheapest-actions { min-width: 0; }
   .cheapest-result .button { width: 100%; }
   .shop-result-list { grid-template-columns: 1fr; }
   .shop-price-card { padding: 16px; }
@@ -785,6 +870,17 @@ dialog .consent { font-size: 10px; }
   .product-thumb { width: 50px; height: 50px; }
   .verdict-card { grid-template-columns: 44px 1fr; padding: 17px; }
   .verdict-icon { width: 44px; height: 44px; }
+  .buy-list-panel,
+  .saved-scans-panel { margin-inline: -3px; padding: 18px 14px; border-radius: 23px; }
+  .saved-section-heading { align-items: flex-start; }
+  .saved-section-heading h2 { font-size: 20px; }
+  .buy-store-header { padding: 13px; }
+  .buy-store-items { padding: 0 13px; }
+  .buy-item { grid-template-columns: 21px minmax(0, 1fr); gap: 10px; }
+  .buy-item-actions { grid-column: 2; justify-content: flex-start; }
+  .buy-item-actions .text-button { padding: 7px 3px; }
+  .buy-store-subtotal { font-size: 14px; }
+  .nav-count { top: 2px; right: 12%; }
   .footer { display: none; }
 }
 
