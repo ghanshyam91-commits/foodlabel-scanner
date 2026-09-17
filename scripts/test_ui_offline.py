@@ -32,8 +32,10 @@ SHOP_FIXTURE = {
     'price_data_updated': '2026-09-17', 'eur_to_inr': 100, 'exchange_rate_date': '2026-09-17',
     'notice': 'Verify current price and package ingredients before buying.',
     'nearby_stores': [
-        {'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .8, 'map_url': 'https://www.openstreetmap.org/'},
-        {'name': 'Jumbo', 'code': 'jumbo', 'distance_km': 1.2, 'map_url': 'https://www.openstreetmap.org/'},
+        {'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .8, 'map_url': 'https://www.openstreetmap.org/',
+         'directions_url': 'https://www.google.com/maps/dir/?api=1&destination=51.845000%2C5.860000&travelmode=walking'},
+        {'name': 'Jumbo', 'code': 'jumbo', 'distance_km': 1.2, 'map_url': 'https://www.openstreetmap.org/',
+         'directions_url': 'https://www.google.com/maps/dir/?api=1&destination=51.860000%2C5.860000&travelmode=walking'},
     ],
     'results': [
         {'code': 'ah', 'supermarket': 'Albert Heijn', 'distance_km': .8, 'available': True,
@@ -43,6 +45,7 @@ SHOP_FIXTURE = {
          'vegan_confidence': 92, 'vegan_confidence_note': 'Explicitly marked plant-based.',
          'product_url': '', 'product_url_is_exact': False,
          'search_url': 'https://www.ah.nl/zoeken?query=haverdrink', 'map_url': 'https://www.openstreetmap.org/',
+         'directions_url': 'https://www.google.com/maps/dir/?api=1&destination=51.845000%2C5.860000&travelmode=walking',
          'is_lowest_pack': True, 'is_best_value': True},
         {'code': 'jumbo', 'supermarket': 'Jumbo', 'distance_km': 1.2, 'available': True,
          'product_name': 'Jumbo haverdrink', 'amount': '1 l', 'price_eur': 1.49,
@@ -51,6 +54,7 @@ SHOP_FIXTURE = {
          'vegan_confidence': 72, 'vegan_confidence_note': 'Likely plant-based from the name.',
          'product_url': 'https://www.jumbo.com/producten/jumbo-haverdrink-1-l', 'product_url_is_exact': True,
          'search_url': 'https://www.jumbo.com/zoeken?searchTerms=haverdrink', 'map_url': 'https://www.openstreetmap.org/',
+         'directions_url': 'https://www.google.com/maps/dir/?api=1&destination=51.860000%2C5.860000&travelmode=walking',
          'is_lowest_pack': False, 'is_best_value': False},
         {'code': 'aldi', 'supermarket': 'ALDI', 'distance_km': 1.8, 'available': False,
          'search_url': 'https://www.aldi.nl/zoeken.html?query=haverdrink',
@@ -109,6 +113,7 @@ with sync_playwright() as playwright:
         page.locator('.shop-price-card', has_text='Jumbo').get_by_role('button', name='Add to My List').click()
         page.locator('[data-page="history"]').click()
         assert page.locator('.buy-store-group').count() == 2
+        assert page.locator('.store-directions').first.get_attribute('href').startswith('https://www.google.com/maps/dir/')
         assert page.locator('#buy-list-count').inner_text() == '2'
         page.locator('[data-page="home"]').click()
         if width == 390:
