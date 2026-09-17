@@ -25,9 +25,10 @@
   function changePage(page) {
     ['home','scan','history','about','settings'].forEach(p=>$(p+'-page').hidden=p!==page);
     document.querySelectorAll('[data-page]').forEach(b=>{if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
-    if(page==='history')renderHistory();
+    if(page==='history')renderHistory();if(page==='settings')loadUsage();
     window.scrollTo({top:0,behavior:'smooth'});
   }
+  async function loadUsage(){try{const u=await api('/api/usage/');$('usage-scans').textContent=u.scans;$('usage-cost').textContent='$'+Number(u.estimated_usd).toFixed(4);$('usage-model').textContent=u.model;$('usage-tokens').textContent=u.input_tokens.toLocaleString()+' input · '+u.output_tokens.toLocaleString()+' output tokens';const o=document.querySelector('.usage-orbit');o?.classList.remove('pulse');requestAnimationFrame(()=>o?.classList.add('pulse'));}catch{}}
   function clearPhoto() {
     $('capture-hint').replaceChildren(text('strong','The ingredients side, please.'),text('p','Keep the whole list sharp and in frame.'));
     if(state.url)URL.revokeObjectURL(state.url);

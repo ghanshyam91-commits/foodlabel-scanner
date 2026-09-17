@@ -1,5 +1,7 @@
 import hmac
+from datetime import date
 from django.conf import settings
+from django.db.models import F, Sum
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
@@ -7,6 +9,8 @@ from django.views.decorators.http import require_GET, require_POST
 from .demo import EXAMPLES, demo_label
 from .images import MAX_BYTES, ImageInputError, prepare_image
 from .provider import ProviderError, extract_label
+from .models import MonthlyUsage
+from . import auth
 from .rules import PREFERENCES, assess
 from .throttle import QuotaUnavailable, client_id, hit
 
@@ -24,6 +28,8 @@ class PrivacyHeadersMiddleware:
 @ensure_csrf_cookie
 @require_GET
 def index(request):
+    if settings.AUTH_REQUIRED and not auth.unlocked(request):
+        return auth.login_page(request)
     return render(request, 'scanner/index.html')
 
 @require_GET
@@ -35,7 +41,18 @@ def config(request):
     return JsonResponse({'ai_configured': bool(settings.GEMINI_API_KEY),
         'access_required': bool(settings.SCANNER_ACCESS_CODE),
         'unlocked': not settings.SCANNER_ACCESS_CODE or bool(request.session.get('unlocked')),
-        'max_bytes': MAX_BYTES})
+        'authenticated': auth.unlocked(request) if settings.AUTH_REQUIRED else True,
+        'model': settings.GEMINI_MODEL, 'max_bytes': MAX_BYTES})
+
+@require_GET
+def usage(request):
+    user=auth.account(request)
+    if settings.AUTH_REQUIRED and not auth.unlocked(request):return JsonResponse({'error':'Unlock the app first.'},status=401)
+    rows=MonthlyUsage.objects.filter(account=user,month=date.today().replace(day=1)) if user else MonthlyUsage.objects.none()
+    totals=rows.aggregate(scans=Sum('scans'),input=Sum('input_tokens'),output=Sum('output_tokens'))
+    input_tokens=totals['input'] or 0;output_tokens=totals['output'] or 0
+    usd=input_tokens/1_000_000*0.10+output_tokens/1_000_000*0.40
+    return JsonResponse({'month':date.today().strftime('%B %Y'),'scans':totals['scans'] or 0,'input_tokens':input_tokens,'output_tokens':output_tokens,'estimated_usd':round(usd,6),'model':settings.GEMINI_MODEL})
 
 @require_POST
 def unlock(request):
@@ -62,6 +79,7 @@ def output(label, preference, example=False):
 
 @require_POST
 def scan(request):
+    if settings.AUTH_REQUIRED and not auth.unlocked(request):return JsonResponse({'error':'Sign in and unlock the app first.'},status=401)
     if settings.SCANNER_ACCESS_CODE and not request.session.get('unlocked'):
         return JsonResponse({'error': 'Enter your private-beta access code before scanning.'}, status=403)
     if not settings.GEMINI_API_KEY:
@@ -85,7 +103,12 @@ def scan(request):
         # Global daily quota cannot be bypassed by a fresh browser session or new IP.
         if not hit('scan:' + client_id(request), settings.SCANS_PER_MINUTE, 60) or not hit('daily-total', settings.SCANS_PER_DAY, 86400):
             return JsonResponse({'error': 'Scan limit reached. Please try later.'}, status=429)
-        label = extract_label(cleaned, settings.GEMINI_API_KEY, settings.GEMINI_MODEL)
+        result = extract_label(cleaned, settings.GEMINI_API_KEY, settings.GEMINI_MODEL)
+        label = getattr(result,'label',result)
+        user=auth.account(request)
+        if user:
+            row,_=MonthlyUsage.objects.get_or_create(account=user,month=date.today().replace(day=1),model_name=settings.GEMINI_MODEL)
+            MonthlyUsage.objects.filter(pk=row.pk).update(scans=F('scans')+1,input_tokens=F('input_tokens')+getattr(result,'input_tokens',0),output_tokens=F('output_tokens')+getattr(result,'output_tokens',0))
         return JsonResponse(output(label, preference))
     except ImageInputError as exc:
         return JsonResponse({'error': str(exc)}, status=400)

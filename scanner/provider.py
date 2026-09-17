@@ -3,6 +3,7 @@ import base64
 import json
 import re
 import httpx
+from dataclasses import dataclass
 from pydantic import ValidationError
 from .schema import LabelExtraction
 
@@ -28,6 +29,13 @@ List all unreadable sections. Never output a dietary verdict, confidence score o
 """
 class ProviderError(RuntimeError):
     pass
+@dataclass(frozen=True)
+class ExtractionResult:
+    label: LabelExtraction
+    input_tokens: int = 0
+    output_tokens: int = 0
+    def __getattr__(self, name):
+        return getattr(self.label, name)
 
 def _api_schema(value):
     # Length bounds are enforced locally. Gemini's JSON Schema subset varies by model.
@@ -37,7 +45,7 @@ def _api_schema(value):
         return [_api_schema(v) for v in value]
     return value
 
-def extract_label(image: bytes, api_key: str, model: str) -> LabelExtraction:
+def extract_label(image: bytes, api_key: str, model: str) -> ExtractionResult:
     if not api_key:
         raise ProviderError('Photo scanning needs a server-side GEMINI_API_KEY. Demo examples do not need a key.')
     if not re.fullmatch(r'[a-zA-Z0-9._-]+', model):
@@ -73,7 +81,8 @@ def extract_label(image: bytes, api_key: str, model: str) -> LabelExtraction:
         if candidate.get('finishReason') != 'STOP':
             raise ProviderError('The AI could not read the complete label. Try a clearer photo.')
         text = ''.join(part.get('text', '') for part in candidate['content']['parts'] if not part.get('thought'))
-        return LabelExtraction.model_validate_json(text)
+        usage = body.get('usageMetadata') or {}
+        return ExtractionResult(LabelExtraction.model_validate_json(text), max(0,int(usage.get('promptTokenCount') or 0)), max(0,int(usage.get('candidatesTokenCount') or 0)))
     except ProviderError:
         raise
     except httpx.TimeoutException as exc:

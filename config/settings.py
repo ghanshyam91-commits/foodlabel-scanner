@@ -30,7 +30,8 @@ TEMPLATES = [{'BACKEND': 'django.template.backends.django.DjangoTemplates',
     'DIRS': [], 'APP_DIRS': True, 'OPTIONS': {'context_processors': [
         'django.template.context_processors.request', 'django.template.context_processors.csrf']}}]
 WSGI_APPLICATION = 'config.wsgi.application'
-DATABASES = {'default': {'ENGINE': 'django.db.backends.sqlite3', 'NAME': BASE_DIR / 'db.sqlite3'}}
+import dj_database_url
+DATABASES = {'default': dj_database_url.config(default=f'sqlite:///{BASE_DIR / "db.sqlite3"}', conn_max_age=600, conn_health_checks=True)}
 SESSION_ENGINE = 'django.contrib.sessions.backends.signed_cookies'
 SESSION_COOKIE_AGE = 12 * 60 * 60
 SESSION_COOKIE_HTTPONLY = True
@@ -62,10 +63,12 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 DATA_UPLOAD_MAX_NUMBER_FILES = 1
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 8
 GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
-GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-3.1-flash-lite')
+GEMINI_MODEL = os.environ.get('GEMINI_MODEL', 'gemini-2.5-flash-lite')
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get('GOOGLE_OAUTH_CLIENT_ID', '')
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get('GOOGLE_OAUTH_CLIENT_SECRET', '')
+GOOGLE_AUTH_CONFIGURED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
+AUTH_REQUIRED = os.environ.get('AUTH_REQUIRED', '0' if DEBUG else '1') == '1'
 SCANNER_ACCESS_CODE = os.environ.get('SCANNER_ACCESS_CODE', '')
-if not DEBUG and len(SCANNER_ACCESS_CODE) < 16:
-    raise ImproperlyConfigured('Set a SCANNER_ACCESS_CODE of at least 16 characters for this private beta.')
 REDIS_URL = os.environ.get('REDIS_URL', '')
 if not DEBUG and not REDIS_URL:
     raise ImproperlyConfigured('Set REDIS_URL for shared, fail-closed production quotas.')
