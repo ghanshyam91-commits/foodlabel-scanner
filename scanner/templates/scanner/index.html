@@ -78,7 +78,6 @@
         <p id="shop-search-error" class="error" role="alert" hidden></p>
         <div id="shop-search-results" class="shop-search-results" hidden>
           <div class="translation-summary"><div><span>You searched</span><strong id="searched-query"></strong></div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg><div><span>Dutch search</span><strong id="translated-query"></strong></div></div>
-          <div class="comparison-meta"><span id="search-scope"></span><span id="price-update"></span></div>
           <section id="cheapest-result" class="cheapest-result" hidden></section>
           <div class="result-list-heading"><h3>Supermarket comparison</h3><span id="result-count"></span></div>
           <div id="shop-result-list" class="shop-result-list"></div>
@@ -172,10 +171,12 @@
         <p id="error" class="error" role="alert" hidden></p>
       </section>
 
-      <section id="result" class="result" aria-labelledby="result-title" tabindex="-1" hidden>
-        <div class="result-heading minimal-product"><h2 id="product-name"></h2></div>
-        <div class="verdict-card minimal-verdict" id="verdict-card"><div class="verdict-icon"><svg class="icon"><use id="result-verdict-icon" href="#i-check"/></svg></div><div><h3 id="result-title"></h3><div class="scan-confidence"><strong id="result-confidence">0%</strong><span>confidence</span></div></div></div>
-        <div class="result-actions minimal-result-actions"><button class="button primary full" id="scan-another" type="button"><svg class="icon"><use href="#i-camera"/></svg>Scan another item</button></div>
+      <section id="result" class="result result-popup" aria-labelledby="result-title" tabindex="-1" hidden>
+        <div class="result-popup-card">
+          <div class="result-heading minimal-product"><h2 id="product-name"></h2></div>
+          <div class="verdict-card minimal-verdict" id="verdict-card"><div class="verdict-icon"><svg class="icon"><use id="result-verdict-icon" href="#i-check"/></svg></div><div><h3 id="result-title"></h3><div class="scan-confidence"><strong id="result-confidence">0%</strong><span>confidence</span></div><p id="result-check-summary" class="check-summary" hidden></p></div></div>
+          <div class="result-actions minimal-result-actions"><button class="button primary full" id="scan-another" type="button"><svg class="icon"><use href="#i-camera"/></svg>Scan another item</button></div>
+        </div>
       </section>
 
       <section class="examples" aria-labelledby="examples-title"><div class="examples-heading"><div><div class="section-kicker">TEST SCENARIOS</div><h2 id="examples-title">See how FoodLens decides</h2></div><span>Fictional · no photo needed</span></div><div class="example-grid">

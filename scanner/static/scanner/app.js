@@ -305,9 +305,9 @@
     const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
     use.setAttribute('href', '#i-leaf');
     icon.append(use);
-    badge.append(icon, text('span', 'Vegan'), text('strong', `${confidence}%`));
+    badge.append(icon, text('span', 'Confidence'), text('strong', `${confidence}%`));
     badge.title = `${row.vegan_confidence_note || 'Name-based estimate only.'} Scan the package to confirm.`;
-    badge.setAttribute('aria-label', `Vegan confidence ${confidence} percent. ${badge.title}`);
+    badge.setAttribute('aria-label', `Confidence ${confidence} percent. ${badge.title}`);
     return badge;
   }
 
@@ -386,6 +386,7 @@
         searchUrl: row.search_url,
         distanceKm: row.distance_km,
         mapUrl: row.map_url,
+        directionsUrl: row.directions_url,
         quantity: 1,
         bought: false,
         addedAt: new Date().toISOString(),
@@ -450,7 +451,8 @@
       const distance = storeItems[0].distanceKm != null && Number.isFinite(Number(storeItems[0].distanceKm))
         ? `${Number(storeItems[0].distanceKm).toFixed(1)} km away · ` : '';
       title.append(text('h3', storeName), text('span', `${distance}${remaining} left · ${storeItems.length} product${storeItems.length === 1 ? '' : 's'}`));
-      if (storeItems[0].mapUrl) title.append(externalLink('Directions', storeItems[0].mapUrl, 'store-directions'));
+      const directionsUrl = storeItems[0].directionsUrl || storeItems[0].mapUrl;
+      if (directionsUrl) title.append(externalLink('Open directions', directionsUrl, 'store-directions'));
       identity.append(retailerLogo(code, storeName, 'buy-store-logo'), title);
       const subtotalEur = storeItems.filter((item) => !item.bought)
         .reduce((sum, item) => sum + (Number(item.priceEur) || 0) * Math.max(1, Number(item.quantity) || 1), 0);
@@ -568,14 +570,7 @@
   function renderShopSearch(data) {
     $('searched-query').textContent = `“${data.query_en}”`;
     $('translated-query').textContent = `“${data.preference_query_nl}”`;
-    const radiusLabel = data.search_radius_km
-      ? `${data.expanded_search ? 'Expanded to' : 'Within'} ${data.search_radius_km} km`
-      : '';
-    $('search-scope').textContent = [data.preference_label, data.location_label, radiusLabel].filter(Boolean).join(' · ');
     setLocationLabel(data.location_name || data.location_label || savedLocation());
-    $('price-update').textContent = data.eur_to_inr
-      ? `€1 ≈ ${formatInr(data.eur_to_inr)}${data.exchange_rate_date ? ` · ${data.exchange_rate_date}` : ''}`
-      : 'INR conversion temporarily unavailable';
     const list = $('shop-result-list');
     list.replaceChildren();
     const visibleResults = (data.results || []).filter((row) => row.available).sort((left, right) => {
@@ -597,7 +592,7 @@
     stores.replaceChildren();
     (data.nearby_stores || []).forEach((store) => {
       const label = `${store.name}${store.distance_km == null ? '' : ` · ${store.distance_km.toFixed(1)} km`}`;
-      const chip = externalLink('', store.map_url, 'nearby-store-chip');
+      const chip = externalLink('', store.directions_url || store.map_url, 'nearby-store-chip');
       if (store.code) chip.append(retailerLogo(store.code, store.name, 'nearby-store-logo'));
       chip.append(text('span', label));
       stores.append(chip);
@@ -730,6 +725,12 @@
     return Math.max(25, Math.min(98, Math.round(score)));
   }
 
+  function checkSummary(assessment) {
+    const issue = Array.isArray(assessment.issues) ? assessment.issues.find((value) => String(value || '').trim()) : '';
+    const summary = String(issue || assessment.explanation || 'The label could not be confirmed clearly.').trim();
+    return summary.length > 150 ? `${summary.slice(0, 147)}…` : summary;
+  }
+
   function renderResult(data, announce = false) {
     if (!data?.assessment?.title || !Array.isArray(data.assessment.ingredients) || !data.label) {
       throw new Error('Invalid result. Please scan again.');
@@ -744,13 +745,15 @@
     $('result-title').textContent = resultCopy;
     $('result-confidence').textContent = `${resultConfidence(data)}%`;
     $('result-verdict-icon').setAttribute('href', match === 'yes' ? '#i-check' : (match === 'no' ? '#i-close' : '#i-info'));
+    $('result-check-summary').hidden = match !== 'uncertain';
+    $('result-check-summary').textContent = match === 'uncertain' ? checkSummary(assessment) : '';
     $('result').hidden = false;
     $('scan-page').classList.add('has-result');
     $('scan-page-title').textContent = 'Scan result';
     completeProgress();
     $('result').focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    if (announce) flashVerdict(assessment.preference_match);
+    if (announce && match === 'no' && navigator.vibrate) navigator.vibrate([160, 80, 220]);
   }
 
   async function scan() {

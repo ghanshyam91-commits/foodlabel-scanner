@@ -35,6 +35,10 @@ class ShopSearchUnitTests(unittest.TestCase):
         stores = nearby_supermarkets(51.840, 5.860, radius_km=3)
         self.assertEqual([store['code'] for store in stores], ['ah', 'jumbo'])
         self.assertLess(stores[0]['distance_km'], stores[1]['distance_km'])
+        self.assertEqual(
+            stores[0]['directions_url'],
+            'https://www.google.com/maps/dir/?api=1&destination=51.845000%2C5.860000&travelmode=walking',
+        )
         self.assertIn('around:3000,51.840000,5.860000', mock_read.call_args.kwargs['data']['data'])
 
     def test_size_normalisation(self):
