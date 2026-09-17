@@ -25,6 +25,8 @@
     <symbol id="i-camera" viewBox="0 0 24 24"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></symbol>
     <symbol id="i-home" viewBox="0 0 24 24"><path d="m4 11 8-7 8 7v9h-6v-6h-4v6H4Z"/></symbol>
     <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 4h12v17l-6-4-6 4Z"/></symbol>
+    <symbol id="i-bag" viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6L5 8Z"/><path d="M9 9V6a3 3 0 0 1 6 0v3"/></symbol>
+    <symbol id="i-cart-plus" viewBox="0 0 24 24"><path d="M3 4h2l2 11h10l2-7H7"/><circle cx="9" cy="20" r="1"/><circle cx="17" cy="20" r="1"/><path d="M14 3v6m-3-3h6"/></symbol>
     <symbol id="i-leaf" viewBox="0 0 24 24"><path d="M5 20c0-8 5-13 15-15 0 10-5 15-13 15M6 19c3-4 6-7 11-10"/></symbol>
     <symbol id="i-translate" viewBox="0 0 24 24"><path d="M4 5h9M8.5 3v2m-2 0c.4 4 2.2 6.6 5.5 8M11 7c-1 3-3.3 5.5-7 7m9 6 4-10 4 10m-6.5-4h5"/></symbol>
     <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3m-4 4v3"/></symbol>
@@ -171,23 +173,9 @@
       </section>
 
       <section id="result" class="result" aria-labelledby="result-title" tabindex="-1" hidden>
-        <div class="result-legend" aria-label="Result status guide"><span class="selected">✓ Match</span><span>× Conflict</span><span>? Check</span><span>⁙ Blur</span></div>
-        <div class="result-heading product-summary"><span class="product-thumb" aria-hidden="true"><svg class="icon"><use href="#i-scan"/></svg></span><div><div class="section-kicker" id="result-source">YOUR LABEL, EXPLAINED</div><h2 id="product-name"></h2><small>Visible package analysis</small></div><span class="language-badge">NL → EN</span></div>
-        <div class="verdict-card" id="verdict-card"><div class="verdict-icon"><svg class="icon"><use href="#i-check"/></svg></div><div><div class="verdict-top"><span id="result-basis"></span></div><h3 id="result-title"></h3><p id="result-explanation"></p><div class="preference-match" id="preference-match"></div></div></div>
-
-        <section class="result-panel rationale-panel"><div class="section-kicker">DETECTION RATIONALE</div><p id="rationale-copy">FoodLens checked each extracted ingredient against its reviewed dietary rules.</p><div class="confidence-row"><span class="row-icon"><svg class="icon"><use href="#i-scan"/></svg></span><span><strong>Label text extracted</strong><small>Always compare with the package</small></span><b>Clear text ✓</b></div></section>
-        <div id="issues-box" class="issues-box" hidden><h3>What needs checking</h3><ul id="issues-list"></ul></div>
-
-        <div class="result-grid">
-          <section class="result-panel ingredient-panel"><div class="panel-heading"><div><div class="section-kicker">ANALYSIS</div><h3>Ingredients</h3></div><div class="ingredient-language" role="group" aria-label="Ingredient language"><button type="button" data-ingredients-lang="english" aria-pressed="true">English</button><button type="button" data-ingredients-lang="original" aria-pressed="false">Dutch</button></div></div><div id="ingredients-list"></div></section>
-          <div class="result-column">
-            <section class="result-panel allergens"><h3>Allergen statements</h3><div class="allergen-line"><strong>Contains</strong><p id="contains"></p></div><div class="allergen-line"><strong>May contain</strong><p id="may-contain"></p></div><p class="small-note">A precautionary warning is not an ingredient. FoodLens does not determine whether food is allergy-safe.</p></section>
-            <section class="result-panel original-panel"><details><summary><span class="row-icon"><svg class="icon"><use href="#i-translate"/></svg></span><span><strong>Original Dutch text</strong><small>Extracted from the selected photo</small></span><b>⌄</b></summary><p class="translated-label" id="original"></p></details><h4>English label translation</h4><p class="translated-label" id="translation"></p><div id="claims-wrap" hidden><h4>Visible packaging claims</h4><p id="claims"></p><p class="small-note">Transcribed only; certification has not been verified.</p></div></section>
-          </div>
-        </div>
-        <details class="limitations"><summary>Limits of this result</summary><ul id="limitations-list"></ul><p class="small-note" id="ruleset"></p></details>
-        <aside class="result-tip"><span><svg class="icon"><use href="#i-info"/></svg></span><p><strong>Dutch aisle tip</strong> Look for “V-Label” or “100% plantaardig” on the upper spine of Dutch packages, then verify the ingredients.</p></aside>
-        <div class="result-actions"><button class="button primary full" id="scan-another" type="button"><svg class="icon"><use href="#i-camera"/></svg>Scan another item</button><div><button class="button secondary" id="save-result" type="button"><svg class="icon"><use href="#i-bookmark"/></svg>Save to list</button><button class="button secondary" id="share-result" type="button"><svg class="icon"><use href="#i-share"/></svg>Share result</button></div></div>
+        <div class="result-heading minimal-product"><h2 id="product-name"></h2></div>
+        <div class="verdict-card minimal-verdict" id="verdict-card"><div class="verdict-icon"><svg class="icon"><use id="result-verdict-icon" href="#i-check"/></svg></div><div><h3 id="result-title"></h3><div class="scan-confidence"><strong id="result-confidence">0%</strong><span>confidence</span></div></div></div>
+        <div class="result-actions minimal-result-actions"><button class="button primary full" id="scan-another" type="button"><svg class="icon"><use href="#i-camera"/></svg>Scan another item</button></div>
       </section>
 
       <section class="examples" aria-labelledby="examples-title"><div class="examples-heading"><div><div class="section-kicker">TEST SCENARIOS</div><h2 id="examples-title">See how FoodLens decides</h2></div><span>Fictional · no photo needed</span></div><div class="example-grid">
@@ -199,7 +187,7 @@
     </section>
 
     <section id="history-page" class="page history-page" hidden>
-      <header class="page-header"><button type="button" class="round-button" data-page="home" aria-label="Back to home"><svg class="icon"><use href="#i-back"/></svg></button><h1>Saved &amp; shopping list</h1><span class="profile-dot"><svg class="icon"><use href="#i-user"/></svg></span></header>
+      <header class="page-header"><button type="button" class="round-button" data-page="home" aria-label="Back to home"><svg class="icon"><use href="#i-back"/></svg></button><h1>My List</h1><span class="profile-dot"><svg class="icon"><use href="#i-user"/></svg></span></header>
       <div class="hero"><div class="eyebrow"><span class="eyebrow-dot"></span>READY FOR YOUR NEXT SHOP</div><h1>Your buy list,<br><span>sorted by store.</span></h1><p>Products and saved label checks stay on this device.</p></div>
       <section class="buy-list-panel" aria-labelledby="buy-list-title">
         <div class="saved-section-heading"><div><div class="section-kicker">SHOPPING LIST</div><h2 id="buy-list-title">What to buy, store by store</h2><p id="buy-list-summary">Add products from a price comparison.</p></div><button id="clear-bought" class="button secondary small" type="button" hidden>Remove bought</button></div>
@@ -213,7 +201,7 @@
 
     <section id="about-page" class="page about-page" hidden>
       <header class="page-header"><button type="button" class="round-button" data-page="settings" aria-label="Back to settings"><svg class="icon"><use href="#i-back"/></svg></button><h1>Privacy &amp; transparency</h1><span class="profile-dot"><svg class="icon"><use href="#i-user"/></svg></span></header>
-      <div class="hero"><div class="eyebrow"><span class="eyebrow-dot"></span>A LITTLE CLARITY</div><h1>Read the label.<br><span>Keep the final say.</span></h1></div><div class="about-card"><h2>How FoodLens works</h2><p>Gemini extracts and translates the label when configured. Without an API key, free open-source Tesseract OCR reads it locally and uses a smaller built-in Dutch–English ingredient dictionary. A separate, conservative rule engine checks the original ingredient names. Neither tool chooses the dietary verdict.</p><h3>Four deliberately cautious answers</h3><p>Vegan-compatible ingredients, vegetarian but not vegan, non-vegetarian ingredient found, or uncertain. An unreadable list, an unfamiliar ingredient, or an unresolved source blocks a positive result.</p><h3>Privacy by design</h3><p>The app removes image metadata before processing. Photos and results are not saved in the app database or application logs. With Gemini, the provider processes the photo under its own terms. In local OCR mode, the photo stays on the FoodLens server.</p><p>Saved scans, the selected location name, and shopping-list items, quantities, and checked status stay in this browser. Raw coordinates are not stored. Photos are never included. Anyone using this browser profile may see the saved data; clear shopping items and scans from the Saved tab.</p><h3>Not certification or allergy advice</h3><p>FoodLens cannot verify processing aids, manufacturing practices, undeclared ingredients, or product certifications. OCR and AI can misread text. Always compare with the original package.</p></div>
+      <div class="hero"><div class="eyebrow"><span class="eyebrow-dot"></span>A LITTLE CLARITY</div><h1>Read the label.<br><span>Keep the final say.</span></h1></div><div class="about-card"><h2>How FoodLens works</h2><p>Gemini extracts and translates the label when configured. Without an API key, free open-source Tesseract OCR reads it locally and uses a smaller built-in Dutch–English ingredient dictionary. A separate, conservative rule engine checks the original ingredient names. Neither tool chooses the dietary verdict.</p><h3>Four deliberately cautious answers</h3><p>Vegan-compatible ingredients, vegetarian but not vegan, non-vegetarian ingredient found, or uncertain. An unreadable list, an unfamiliar ingredient, or an unresolved source blocks a positive result.</p><h3>Privacy by design</h3><p>The app removes image metadata before processing. Photos and results are not saved in the app database or application logs. With Gemini, the provider processes the photo under its own terms. In local OCR mode, the photo stays on the FoodLens server.</p><p>Saved scans, the selected location name, and shopping-list items, quantities, and checked status stay in this browser. Raw coordinates are not stored. Photos are never included. Anyone using this browser profile may see the saved data; clear shopping items and scans from the My List tab.</p><h3>Not certification or allergy advice</h3><p>FoodLens cannot verify processing aids, manufacturing practices, undeclared ingredients, or product certifications. OCR and AI can misread text. Always compare with the original package.</p></div>
     </section>
   </main>
 
@@ -221,7 +209,7 @@
   <nav class="bottom-nav" aria-label="Main navigation">
     <button data-page="home" aria-current="page"><svg class="icon"><use href="#i-home"/></svg><span>Home</span></button>
     <button id="scan-launch" class="scan-launch" aria-label="Scan a food label"><svg class="icon"><use href="#i-scan"/></svg><span>Scan</span></button>
-    <button data-page="history"><span id="buy-list-count" class="nav-count" hidden>0</span><svg class="icon"><use href="#i-bookmark"/></svg><span>Saved</span></button>
+    <button data-page="history"><span id="buy-list-count" class="nav-count" hidden>0</span><svg class="icon"><use href="#i-bag"/></svg><span>My List</span></button>
   </nav>
 
   <dialog id="scan-dialog" aria-labelledby="scan-dialog-title"><div class="dialog-handle"></div><div class="dialog-heading"><div><div class="section-kicker">START A SCAN</div><h2 id="scan-dialog-title">Choose a label photo</h2></div><button id="sheet-close" class="round-button" type="button" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button></div><p>Keep the complete ingredients list sharp and in frame.</p><button id="sheet-camera" class="button primary full"><svg class="icon"><use href="#i-camera"/></svg>Take a photo</button><button id="sheet-gallery" class="button secondary full"><svg class="icon"><use href="#i-upload"/></svg>Choose from gallery</button></dialog>

@@ -42,6 +42,15 @@
     return element;
   };
 
+  function icon(symbol) {
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    svg.setAttribute('class', 'icon');
+    use.setAttribute('href', `#${symbol}`);
+    svg.append(use);
+    return svg;
+  }
+
   function toast(message) {
     $('toast').textContent = message;
     $('toast').hidden = false;
@@ -338,8 +347,21 @@
     document.querySelectorAll('[data-buy-id]').forEach((button) => {
       const added = ids.has(button.dataset.buyId);
       button.disabled = added;
-      button.textContent = added ? 'Added to list' : 'Add to buy list';
+      button.replaceChildren(icon(added ? 'i-check' : 'i-cart-plus'));
+      button.setAttribute('aria-label', added ? 'Added to My List' : 'Add to My List');
+      button.title = added ? 'Added to My List' : 'Add to My List';
     });
+  }
+
+  function buyActionButton(row, className) {
+    const button = text('button', '', `${className} buy-button icon-action`);
+    button.type = 'button';
+    button.dataset.buyId = buyItemId(row);
+    button.setAttribute('aria-label', 'Add to My List');
+    button.title = 'Add to My List';
+    button.append(icon('i-cart-plus'));
+    button.addEventListener('click', () => addToBuyList(row));
+    return button;
   }
 
   function addToBuyList(row) {
@@ -401,7 +423,7 @@
     updateBuyListCount(items);
     if (!items.length) {
       $('buy-list-summary').textContent = 'Add a product after comparing supermarket prices.';
-      host.append(text('div', 'Your buy list is empty. Search on Home, then choose “Add to buy list”.', 'empty-state'));
+      host.append(text('div', 'Your buy list is empty. Search on Home, then choose the cart icon.', 'empty-state'));
       return;
     }
     const groups = new Map();
@@ -495,11 +517,7 @@
     meta.append(text('span', `${locationLabel} · ${row.amount || 'Package size not listed'}`));
     const actions = text('div', '', 'cheapest-actions');
     actions.append(productDestination(row, 'button primary small'));
-    const add = text('button', 'Add to buy list', 'button light small');
-    add.type = 'button';
-    add.dataset.buyId = buyItemId(row);
-    add.addEventListener('click', () => addToBuyList(row));
-    actions.append(add);
+    actions.append(buyActionButton(row, 'button light small'));
     host.append(copy, meta, actions);
     syncBuyButtons();
   }
@@ -527,11 +545,7 @@
       card.append(text('p', row.dietary_note, 'diet-note'));
       const actions = text('div', '', 'shop-card-actions');
       actions.append(productDestination(row, 'button secondary small'));
-      const add = text('button', 'Add to buy list', 'button buy-button small');
-      add.type = 'button';
-      add.dataset.buyId = buyItemId(row);
-      add.addEventListener('click', () => addToBuyList(row));
-      actions.append(add);
+      actions.append(buyActionButton(row, 'button small'));
       if (row.dietary_status !== 'compatible') {
         const scanButton = text('button', 'Scan label', 'text-button');
         scanButton.type = 'button';
@@ -696,13 +710,24 @@
     const message = $('verdict-flash-text');
     box.className = `verdict-flash ${match}`;
     icon.textContent = match === 'yes' ? '✓' : (match === 'no' ? '×' : '?');
-    message.textContent = match === 'yes' ? 'Matches your food preference' : (match === 'no' ? "Don't eat for your selected preference" : 'Check the package before deciding');
+    message.textContent = match === 'yes' ? 'Buy' : (match === 'no' ? "Don't buy" : 'Check');
     box.hidden = false;
     box.getAnimations().forEach((animation) => animation.cancel());
     void box.offsetWidth;
     box.classList.add('play');
     if (match === 'no' && navigator.vibrate) navigator.vibrate([160, 80, 220]);
     setTimeout(() => { box.hidden = true; }, 2600);
+  }
+
+  function resultConfidence(data) {
+    const assessment = data.assessment;
+    const issueCount = Array.isArray(assessment.issues) ? assessment.issues.length : 0;
+    const ingredientCount = Array.isArray(assessment.ingredients) ? assessment.ingredients.length : 0;
+    let score = assessment.preference_match === 'uncertain' ? 55 : (assessment.preference_match === 'no' ? 95 : 91);
+    score -= Math.min(24, issueCount * 8);
+    if (ingredientCount < 2) score -= 10;
+    if (data.provider === 'Tesseract local OCR') score = Math.min(score, 78);
+    return Math.max(25, Math.min(98, Math.round(score)));
   }
 
   function renderResult(data, announce = false) {
@@ -713,48 +738,15 @@
     const assessment = data.assessment;
     const label = data.label;
     $('product-name').textContent = label.product_name || 'Your food label';
-    $('result-source').textContent = data.is_demo ? 'FICTIONAL EXAMPLE' : (data.provider === 'Tesseract local OCR' ? 'LOCAL OCR · CHECK THE PACKAGE' : 'PACKAGE ANALYSIS');
-    $('result-basis').textContent = assessment.basis;
-    $('verdict-card').className = `verdict-card ${['vegan', 'vegetarian', 'uncertain', 'non_vegetarian'].includes(assessment.verdict) ? assessment.verdict : 'uncertain'}`;
-    $('result-title').textContent = assessment.title;
-    $('result-explanation').textContent = assessment.explanation;
-    const matches = {
-      yes: 'No excluded ingredient identified',
-      no: 'Does not match your preference',
-      uncertain: 'Suitability needs checking',
-    };
-    $('preference-match').textContent = `${matches[assessment.preference_match] || matches.uncertain} · Checked for ${names[assessment.preference] || assessment.preference}`;
-    $('rationale-copy').textContent = assessment.issues?.length
-      ? `FoodLens found ${assessment.issues.length} point${assessment.issues.length === 1 ? '' : 's'} that need a closer look before deciding.`
-      : `FoodLens checked all ${assessment.ingredients.length} extracted ingredient${assessment.ingredients.length === 1 ? '' : 's'} against its reviewed dietary rules.`;
-    $('issues-box').hidden = !assessment.issues?.length;
-    listInto('issues-list', assessment.issues || []);
-    $('ingredients-list').replaceChildren();
-    assessment.ingredients.forEach((ingredient) => {
-      const row = text('div', '', 'ingredient-row');
-      const title = text('div', '', 'ingredient-title');
-      title.append(text('span', ingredient.english, 'ingredient-english'));
-      const kind = ['plant', 'dairy', 'egg', 'honey', 'animal', 'uncertain'].includes(ingredient.kind) ? ingredient.kind : 'uncertain';
-      title.append(text('span', kind === 'plant' ? 'Plant / mineral' : kind, `ingredient-kind ${kind}`));
-      row.append(title, text('div', ingredient.original, 'ingredient-original'), text('p', ingredient.reason, 'ingredient-reason'));
-      $('ingredients-list').append(row);
-    });
-    if (!assessment.ingredients.length) {
-      $('ingredients-list').append(text('p', 'No complete ingredient list was read. Photograph the back of the package.', 'small-note'));
-    }
-    setIngredientLanguage(state.ingredientLanguage);
-    $('contains').textContent = label.contains?.length ? label.contains.join(', ') : 'No explicit “contains” statement read — not an absence guarantee.';
-    $('may-contain').textContent = label.may_contain?.length ? label.may_contain.join(', ') : 'No precautionary statement read — not an absence guarantee.';
-    $('translation').textContent = label.translated_text || 'No readable text to translate.';
-    $('original').textContent = label.original_text || 'No original text read.';
-    $('claims-wrap').hidden = !label.visible_claims?.length;
-    $('claims').textContent = (label.visible_claims || []).join(' · ');
-    listInto('limitations-list', assessment.limitations || []);
-    $('ruleset').textContent = `Rule version: ${assessment.ruleset_version}`;
-    $('save-result').lastChild.textContent = 'Save to list';
+    const match = ['yes', 'no'].includes(assessment.preference_match) ? assessment.preference_match : 'uncertain';
+    const resultCopy = match === 'yes' ? 'Buy' : (match === 'no' ? "Don't buy" : 'Check');
+    $('verdict-card').className = `verdict-card minimal-verdict ${match === 'yes' ? 'buy' : (match === 'no' ? 'dont-buy' : 'check')}`;
+    $('result-title').textContent = resultCopy;
+    $('result-confidence').textContent = `${resultConfidence(data)}%`;
+    $('result-verdict-icon').setAttribute('href', match === 'yes' ? '#i-check' : (match === 'no' ? '#i-close' : '#i-info'));
     $('result').hidden = false;
     $('scan-page').classList.add('has-result');
-    $('scan-page-title').textContent = 'Product Breakdown';
+    $('scan-page-title').textContent = 'Scan result';
     completeProgress();
     $('result').focus({ preventScroll: true });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -919,8 +911,6 @@
     $(id).addEventListener('change', async (event) => { await selectPhoto(event.target.files[0]); });
   });
   $('remove-photo').addEventListener('click', clearPhoto);
-  $('save-result').addEventListener('click', saveResult);
-  $('share-result').addEventListener('click', shareResult);
   $('product-search-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     await searchProducts();

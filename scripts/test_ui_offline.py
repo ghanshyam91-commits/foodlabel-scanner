@@ -105,8 +105,8 @@ with sync_playwright() as playwright:
         assert page.locator('.shop-price-card', has_text='Jumbo').get_by_role('link', name='View', exact=True).count() == 1
         assert page.locator('.shop-price-card', has_text='Albert Heijn').get_by_role('link', name='Search', exact=True).count() == 1
         assert page.evaluate("localStorage.getItem('foodlens.shop-location.v1')") == 'Nijmegen'
-        page.locator('.shop-price-card', has_text='Albert Heijn').get_by_role('button', name='Add to buy list').click()
-        page.locator('.shop-price-card', has_text='Jumbo').get_by_role('button', name='Add to buy list').click()
+        page.locator('.shop-price-card', has_text='Albert Heijn').get_by_role('button', name='Add to My List').click()
+        page.locator('.shop-price-card', has_text='Jumbo').get_by_role('button', name='Add to My List').click()
         page.locator('[data-page="history"]').click()
         assert page.locator('.buy-store-group').count() == 2
         assert page.locator('#buy-list-count').inner_text() == '2'
