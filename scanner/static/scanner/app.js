@@ -23,12 +23,12 @@
     ingredientLanguage: 'english',
     progressInterval: null,
     progressTimers: [],
-    searchLocation: null,
     shopSearchBusy: false,
   };
   const storageKey = 'foodlens.saved.v1';
   const buyListKey = 'foodlens.buy-list.v1';
   const locationKey = 'foodlens.shop-location.v1';
+  const defaultLocation = 'Nijmegen';
   const consentKey = 'foodlens.consent.gemini.v1';
   let toastTimer;
   let consentGranted = false;
@@ -210,9 +210,9 @@
   function savedLocation() {
     try {
       const value = localStorage.getItem(locationKey) || '';
-      return value.trim().slice(0, 80);
+      return value.trim().slice(0, 80) || defaultLocation;
     } catch {
-      return '';
+      return defaultLocation;
     }
   }
 
@@ -220,49 +220,33 @@
     const value = String(name || '').trim().slice(0, 80);
     if (!value || value === 'Current location' || value === 'Netherlands-wide comparison') return;
     try { localStorage.setItem(locationKey, value); } catch {}
-    state.searchLocation = null;
-    $('manual-location').value = value;
-    $('manual-location-wrap').hidden = true;
-    setLocationLabels(value, value);
-    $('manual-location-toggle').textContent = 'Change location';
+    setLocationLabel(value);
   }
 
   function applySavedLocation() {
-    const value = savedLocation();
-    if (!value) return;
-    $('manual-location').value = value;
-    setLocationLabels(value, value);
-    $('manual-location-toggle').textContent = 'Change location';
+    setLocationLabel(savedLocation());
   }
 
   function setShopSearchBusy(busy) {
     state.shopSearchBusy = busy;
     $('shop-search-progress').hidden = !busy;
-    ['product-search-button', 'product-search-query', 'manual-location'].forEach((id) => {
+    ['product-search-button', 'product-search-query'].forEach((id) => {
       $(id).disabled = busy;
     });
   }
 
-  function setLocationLabels(searchLabel, headerLabel = searchLabel) {
-    $('location-label').textContent = searchLabel;
-    $('header-location-label').textContent = headerLabel;
-  }
-
   function setLocationLabel(label) {
-    setLocationLabels(label, label);
+    $('header-location-label').textContent = label;
   }
 
   function locationError(message) {
-    $('manual-location-wrap').hidden = false;
-    $('shop-search-error').textContent = message;
-    $('shop-search-error').hidden = false;
-    const previous = savedLocation();
-    setLocationLabels(previous || 'Location unavailable', previous || 'Set location');
-    $('manual-location').focus();
+    setLocationLabel(savedLocation());
+    $('location-error').textContent = message;
+    $('location-error').hidden = false;
   }
 
-  function requestCurrentLocation() {
-    return new Promise((resolve, reject) => {
+  async function requestCurrentLocation() {
+    const coordinates = await new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
         const error = new Error('Location is not available in this browser. Enter a Dutch city or postcode.');
         locationError(error.message);
@@ -270,22 +254,24 @@
         return;
       }
       setLocationLabel('Finding…');
-      $('shop-search-error').hidden = true;
+      $('location-error').hidden = true;
       navigator.geolocation.getCurrentPosition((position) => {
-        state.searchLocation = {
+        resolve({
           lat: Number(position.coords.latitude.toFixed(3)),
           lon: Number(position.coords.longitude.toFixed(3)),
-        };
-        $('manual-location').value = '';
-        $('manual-location-wrap').hidden = true;
-        setLocationLabels('Current location ready — compare to save its name', 'Current location');
-        resolve(state.searchLocation);
+        });
       }, () => {
         const error = new Error('Allow location access, or enter a Dutch city or postcode.');
         locationError(error.message);
         reject(error);
       }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
     });
+    const form = new FormData();
+    form.append('lat', coordinates.lat);
+    form.append('lon', coordinates.lon);
+    const data = await api('/api/location-name/', { method: 'POST', body: form });
+    rememberLocation(data.location_name);
+    return data.location_name;
   }
 
   function priceBlock(row) {
@@ -571,13 +557,17 @@
       ? `${data.expanded_search ? 'Expanded to' : 'Within'} ${data.search_radius_km} km`
       : '';
     $('search-scope').textContent = [data.preference_label, data.location_label, radiusLabel].filter(Boolean).join(' · ');
-    $('header-location-label').textContent = data.location_label;
+    setLocationLabel(data.location_name || data.location_label || savedLocation());
     $('price-update').textContent = data.eur_to_inr
       ? `€1 ≈ ${formatInr(data.eur_to_inr)}${data.exchange_rate_date ? ` · ${data.exchange_rate_date}` : ''}`
       : 'INR conversion temporarily unavailable';
     const list = $('shop-result-list');
     list.replaceChildren();
-    const visibleResults = (data.results || []).filter((row) => row.available);
+    const visibleResults = (data.results || []).filter((row) => row.available).sort((left, right) => {
+      const leftDistance = left.distance_km == null ? Number.POSITIVE_INFINITY : Number(left.distance_km);
+      const rightDistance = right.distance_km == null ? Number.POSITIVE_INFINITY : Number(right.distance_km);
+      return leftDistance - rightDistance || Number(left.price_eur || 0) - Number(right.price_eur || 0);
+    });
     visibleResults.forEach((row) => list.append(renderShopResult(row)));
     if (!visibleResults.length) {
       const area = data.search_radius_km ? ` within ${data.search_radius_km} km` : '';
@@ -611,27 +601,20 @@
   async function searchProducts() {
     if (state.shopSearchBusy) return;
     const query = $('product-search-query').value.trim();
-    const manual = $('manual-location').value.trim();
+    const location = savedLocation();
     if (query.length < 2) return;
     $('shop-search-error').hidden = true;
     $('shop-search-results').hidden = true;
-    if (!manual && !state.searchLocation) {
-      try { await requestCurrentLocation(); } catch { return; }
-    }
     const form = new FormData();
     form.append('query', query);
     form.append('preference', preference());
-    if (manual) form.append('location', manual);
-    else if (state.searchLocation) {
-      form.append('lat', state.searchLocation.lat);
-      form.append('lon', state.searchLocation.lon);
-    }
+    form.append('location', location);
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 45000);
     setShopSearchBusy(true);
     try {
       const data = await api('/api/shop-search/', { method: 'POST', body: form, signal: controller.signal });
-      rememberLocation(data.location_name || manual);
+      rememberLocation(data.location_name || location);
       renderShopSearch(data);
       $('shop-search-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
@@ -941,24 +924,31 @@
     event.preventDefault();
     await searchProducts();
   });
-  $('header-location').addEventListener('click', async () => {
+  $('header-location').addEventListener('click', () => {
+    $('location-input').value = savedLocation();
+    $('location-error').hidden = true;
+    $('location-dialog').showModal();
+  });
+  $('location-close').addEventListener('click', () => $('location-dialog').close());
+  $('location-current-button').addEventListener('click', async () => {
+    $('location-current-button').disabled = true;
     try {
-      await requestCurrentLocation();
-      toast('Current location is ready for nearby comparisons.');
-    } catch {}
-  });
-  $('manual-location-toggle').addEventListener('click', () => {
-    $('manual-location-wrap').hidden = false;
-    $('manual-location').focus();
-    $('manual-location').select();
-  });
-  $('manual-location').addEventListener('input', () => {
-    const value = $('manual-location').value.trim();
-    if (value) setLocationLabels(`${value} — compare to save`, value);
-    else {
-      const previous = savedLocation();
-      setLocationLabels(previous || 'Choose a location', previous || 'Use location');
+      const name = await requestCurrentLocation();
+      $('location-dialog').close();
+      toast(`Location saved: ${name}`);
+    } catch (error) {
+      locationError(error.message);
+    } finally {
+      $('location-current-button').disabled = false;
     }
+  });
+  $('location-form').addEventListener('submit', (event) => {
+    event.preventDefault();
+    const value = $('location-input').value.trim();
+    if (!value) return;
+    rememberLocation(value);
+    $('location-dialog').close();
+    toast(`Location saved: ${value}`);
   });
   document.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => changePage(button.dataset.page)));
   document.querySelectorAll('[data-ingredients-lang]').forEach((button) => button.addEventListener('click', () => setIngredientLanguage(button.dataset.ingredientsLang)));

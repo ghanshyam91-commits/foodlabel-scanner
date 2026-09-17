@@ -110,8 +110,8 @@ class ShopSearchUnitTests(unittest.TestCase):
     def test_builds_nearby_comparison_and_marks_cheapest(self, mock_translate, mock_nearby, mock_catalogue, _, mock_reverse):
         mock_translate.return_value = TranslationResult('haverdrink', 'haverdrink', ('havermelk',), 'test')
         mock_nearby.return_value = [
-            {'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .8, 'map_url': 'https://www.openstreetmap.org/'},
             {'name': 'Jumbo', 'code': 'jumbo', 'distance_km': 1.2, 'map_url': 'https://www.openstreetmap.org/'},
+            {'name': 'Albert Heijn', 'code': 'ah', 'distance_km': .8, 'map_url': 'https://www.openstreetmap.org/'},
             {'name': 'ALDI', 'code': 'aldi', 'distance_km': 1.8, 'map_url': 'https://www.openstreetmap.org/'},
         ]
         mock_catalogue.return_value = ([
@@ -123,6 +123,7 @@ class ShopSearchUnitTests(unittest.TestCase):
         ], '2026-09-17T01:00:00Z')
         data = build_shop_search('oat milk', 'vegan', '', '', lat=51.84, lon=5.86)
         self.assertEqual(data['results'][0]['supermarket'], 'Albert Heijn')
+        self.assertEqual([row['distance_km'] for row in data['results']], [.8, 1.2])
         self.assertTrue(data['results'][0]['is_lowest_pack'])
         self.assertTrue(data['results'][0]['is_best_value'])
         self.assertEqual(data['results'][0]['price_inr'], 125)

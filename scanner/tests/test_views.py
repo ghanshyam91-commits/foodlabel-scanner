@@ -25,6 +25,15 @@ class ViewTests(SimpleTestCase):
         self.assertEqual(response.headers['X-FoodLens-Logo-Source'],'catalogue')
         self.assertIn('max-age=86400',response.headers['Cache-Control'])
         self.assertEqual(self.client.get('/api/shop-logo/not-a-store/').status_code,404)
+    @patch('scanner.views.reverse_geocode_location', return_value='Nijmegen')
+    def test_current_location_name_is_resolved_and_not_stored_as_coordinates(self, mock_reverse):
+        response = self.client.post('/api/location-name/', {'lat': '51.842', 'lon': '5.852'})
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {'location_name': 'Nijmegen'})
+        mock_reverse.assert_called_once_with(51.842, 5.852)
+    def test_current_location_must_be_in_the_netherlands(self):
+        response = self.client.post('/api/location-name/', {'lat': '12.97', 'lon': '77.59'})
+        self.assertEqual(response.status_code, 400)
     def test_no_photo(self):self.assertEqual(self.client.post('/api/scan/',{'consent':'yes'}).status_code,400)
     def test_no_consent(self):self.assertEqual(self.client.post('/api/scan/').status_code,400)
     def test_csrf_enforced(self):self.assertEqual(Client(enforce_csrf_checks=True).post('/api/scan/').status_code,403)
