@@ -2,7 +2,7 @@ import hmac
 from datetime import date
 from django.conf import settings
 from django.db.models import F, Sum
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import ensure_csrf_cookie
 from django.views.decorators.http import require_GET, require_POST
@@ -10,7 +10,10 @@ from .demo import EXAMPLES, demo_label
 from .images import MAX_BYTES, ImageInputError, prepare_image
 from .provider import ProviderError, extract_label
 from .local_ocr import extract_label_local
-from .shop_search import ShopSearchError, build_shop_search
+from .shop_search import (
+    RETAILERS, ShopSearchError, build_shop_search, fallback_retailer_logo,
+    load_retailer_logo,
+)
 from .models import MonthlyUsage
 from . import auth
 from .rules import PREFERENCES, assess
@@ -21,9 +24,13 @@ class PrivacyHeadersMiddleware:
         self.get_response = get_response
     def __call__(self, request):
         response = self.get_response(request)
-        response['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+        if request.path.startswith('/api/shop-logo/'):
+            response['Content-Security-Policy'] = "default-src 'none'; img-src 'none'; style-src 'none'; sandbox"
+            response['Cache-Control'] = 'public, max-age=86400, immutable'
+        else:
+            response['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         response['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=(self)'
-        if not request.path.startswith(settings.STATIC_URL):
+        if not request.path.startswith(settings.STATIC_URL) and not request.path.startswith('/api/shop-logo/'):
             response['Cache-Control'] = 'no-store, private'
         return response
 
@@ -37,6 +44,22 @@ def index(request):
 @require_GET
 def health(request):
     return JsonResponse({'status': 'ok'})
+
+@require_GET
+def shop_logo(request, code):
+    if code not in RETAILERS:
+        return HttpResponse(status=404)
+    try:
+        content, content_type = load_retailer_logo(code)
+        source = 'catalogue'
+    except (ShopSearchError, ValueError, ImportError):
+        content, content_type = fallback_retailer_logo(code)
+        source = 'fallback'
+    response = HttpResponse(content, content_type=content_type)
+    response['X-Content-Type-Options'] = 'nosniff'
+    response['X-FoodLens-Logo-Source'] = source
+    response['Content-Disposition'] = f'inline; filename="{code}-logo"'
+    return response
 
 @require_GET
 def config(request):

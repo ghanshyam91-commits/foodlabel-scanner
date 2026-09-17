@@ -27,6 +27,8 @@
     shopSearchBusy: false,
   };
   const storageKey = 'foodlens.saved.v1';
+  const buyListKey = 'foodlens.buy-list.v1';
+  const locationKey = 'foodlens.shop-location.v1';
   const consentKey = 'foodlens.consent.gemini.v1';
   let toastTimer;
   let consentGranted = false;
@@ -179,6 +181,60 @@
     return link;
   }
 
+  function productDestination(row, className = '') {
+    const url = ['ah', 'lidl'].includes(row.code) ? '' : (row.product_url ?? row.productUrl);
+    const exact = row.product_url_is_exact ?? row.productUrlIsExact;
+    const supermarket = row.supermarket || 'store';
+    if (!url) {
+      const note = text('span', 'Exact page unavailable', 'product-link-note');
+      note.title = `${supermarket} does not expose a usable public product page for this result.`;
+      return note;
+    }
+    return externalLink(exact ? 'View exact product' : `Search ${supermarket}`, url, className);
+  }
+
+  function retailerLogo(code, name, className = 'retailer-logo') {
+    const frame = text('span', '', className);
+    const safeCode = /^[a-z0-9-]{1,24}$/.test(code || '') ? code : 'unknown';
+    const image = document.createElement('img');
+    image.src = `/api/shop-logo/${safeCode}/`;
+    image.alt = `${name} logo`;
+    image.loading = 'lazy';
+    image.addEventListener('error', () => {
+      frame.replaceChildren(text('span', (name || '?').slice(0, 2), 'logo-fallback'));
+    }, { once: true });
+    frame.append(image);
+    return frame;
+  }
+
+  function savedLocation() {
+    try {
+      const value = localStorage.getItem(locationKey) || '';
+      return value.trim().slice(0, 80);
+    } catch {
+      return '';
+    }
+  }
+
+  function rememberLocation(name) {
+    const value = String(name || '').trim().slice(0, 80);
+    if (!value || value === 'Current location' || value === 'Netherlands-wide comparison') return;
+    try { localStorage.setItem(locationKey, value); } catch {}
+    state.searchLocation = null;
+    $('manual-location').value = value;
+    $('manual-location-wrap').hidden = true;
+    setLocationLabels(value, value);
+    $('manual-location-toggle').textContent = 'Change location';
+  }
+
+  function applySavedLocation() {
+    const value = savedLocation();
+    if (!value) return;
+    $('manual-location').value = value;
+    setLocationLabels(value, value);
+    $('manual-location-toggle').textContent = 'Change location';
+  }
+
   function setShopSearchBusy(busy) {
     state.shopSearchBusy = busy;
     $('shop-search-progress').hidden = !busy;
@@ -187,15 +243,21 @@
     });
   }
 
+  function setLocationLabels(searchLabel, headerLabel = searchLabel) {
+    $('location-label').textContent = searchLabel;
+    $('header-location-label').textContent = headerLabel;
+  }
+
   function setLocationLabel(label) {
-    $('header-location-label').textContent = label;
+    setLocationLabels(label, label);
   }
 
   function locationError(message) {
     $('manual-location-wrap').hidden = false;
     $('shop-search-error').textContent = message;
     $('shop-search-error').hidden = false;
-    setLocationLabel('Set location');
+    const previous = savedLocation();
+    setLocationLabels(previous || 'Location unavailable', previous || 'Set location');
     $('manual-location').focus();
   }
 
@@ -216,7 +278,7 @@
         };
         $('manual-location').value = '';
         $('manual-location-wrap').hidden = true;
-        setLocationLabel('Current location');
+        setLocationLabels('Current location ready — compare to save its name', 'Current location');
         resolve(state.searchLocation);
       }, () => {
         const error = new Error('Allow location access, or enter a Dutch city or postcode.');
@@ -238,28 +300,227 @@
     return prices;
   }
 
+  function veganConfidenceBadge(row) {
+    const confidence = Math.max(0, Math.min(100, Number(row.vegan_confidence) || 0));
+    const tone = confidence >= 85 ? 'green' : (confidence >= 65 ? 'orange' : (confidence >= 40 ? 'yellow' : 'red'));
+    const badge = text('span', '', `vegan-confidence ${tone}`);
+    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    icon.classList.add('icon');
+    icon.setAttribute('aria-hidden', 'true');
+    const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    use.setAttribute('href', '#i-leaf');
+    icon.append(use);
+    badge.append(icon, text('span', 'Vegan'), text('strong', `${confidence}%`));
+    badge.title = `${row.vegan_confidence_note || 'Name-based estimate only.'} Scan the package to confirm.`;
+    badge.setAttribute('aria-label', `Vegan confidence ${confidence} percent. ${badge.title}`);
+    return badge;
+  }
+
+  function buyList() {
+    try {
+      const data = JSON.parse(localStorage.getItem(buyListKey) || '[]');
+      if (!Array.isArray(data)) return [];
+      return data
+        .filter((item) => item && /^[a-z0-9-]{1,24}$/.test(item.code || '') && typeof item.productName === 'string')
+        .slice(0, 100);
+    } catch {
+      return [];
+    }
+  }
+
+  function buyItemId(row) {
+    return [row.code || '', row.product_name || row.productName || '', row.amount || ''].join('|').toLowerCase();
+  }
+
+  function saveBuyList(items) {
+    localStorage.setItem(buyListKey, JSON.stringify(items.slice(0, 100)));
+    updateBuyListCount(items);
+    syncBuyButtons(items);
+  }
+
+  function updateBuyListCount(items = buyList()) {
+    const count = items
+      .filter((item) => !item.bought)
+      .reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0);
+    const badge = $('buy-list-count');
+    badge.textContent = String(count);
+    badge.hidden = !count;
+  }
+
+  function syncBuyButtons(items = buyList()) {
+    const ids = new Set(items.map((item) => item.id));
+    document.querySelectorAll('[data-buy-id]').forEach((button) => {
+      const added = ids.has(button.dataset.buyId);
+      button.disabled = added;
+      button.textContent = added ? 'Added to list' : 'Add to buy list';
+    });
+  }
+
+  function addToBuyList(row) {
+    try {
+      const items = buyList();
+      const id = buyItemId(row);
+      if (items.some((item) => item.id === id)) {
+        toast('This product is already in your buy list.');
+        syncBuyButtons(items);
+        return;
+      }
+      items.unshift({
+        id,
+        code: row.code,
+        supermarket: row.supermarket,
+        productName: row.product_name,
+        amount: row.amount || '',
+        priceEur: row.price_eur,
+        priceInr: row.price_inr,
+        productUrl: row.product_url,
+        productUrlIsExact: Boolean(row.product_url_is_exact),
+        distanceKm: row.distance_km,
+        mapUrl: row.map_url,
+        quantity: 1,
+        bought: false,
+        addedAt: new Date().toISOString(),
+      });
+      saveBuyList(items);
+      toast(`${row.product_name} added under ${row.supermarket}.`);
+    } catch {
+      toast('This browser could not save the buy list. Storage may be full or disabled.');
+    }
+  }
+
+  function changeBuyItem(id, action) {
+    try {
+      const items = buyList();
+      const index = items.findIndex((item) => item.id === id);
+      if (index < 0) return;
+      if (action === 'remove') items.splice(index, 1);
+      else if (action === 'toggle') items[index].bought = !items[index].bought;
+      else if (action === 'increase') items[index].quantity = Math.min(99, Math.max(1, Number(items[index].quantity) || 1) + 1);
+      else if (action === 'decrease') items[index].quantity = Math.max(1, (Number(items[index].quantity) || 1) - 1);
+      saveBuyList(items);
+      renderBuyList();
+    } catch {
+      toast('The buy list could not be updated.');
+    }
+  }
+
+  function renderBuyList() {
+    const items = buyList();
+    const host = $('buy-list-groups');
+    const active = items.filter((item) => !item.bought);
+    const activeQuantity = active.reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0);
+    host.replaceChildren();
+    $('clear-bought').hidden = !items.some((item) => item.bought);
+    updateBuyListCount(items);
+    if (!items.length) {
+      $('buy-list-summary').textContent = 'Add a product after comparing supermarket prices.';
+      host.append(text('div', 'Your buy list is empty. Search on Home, then choose “Add to buy list”.', 'empty-state'));
+      return;
+    }
+    const groups = new Map();
+    items.forEach((item) => {
+      if (!groups.has(item.code)) groups.set(item.code, []);
+      groups.get(item.code).push(item);
+    });
+    $('buy-list-summary').textContent = `${activeQuantity} item${activeQuantity === 1 ? '' : 's'} left across ${groups.size} store${groups.size === 1 ? '' : 's'}.`;
+    [...groups.entries()].sort((a, b) => {
+      const ad = a[1][0].distanceKm != null && Number.isFinite(Number(a[1][0].distanceKm))
+        ? Number(a[1][0].distanceKm) : Number.POSITIVE_INFINITY;
+      const bd = b[1][0].distanceKm != null && Number.isFinite(Number(b[1][0].distanceKm))
+        ? Number(b[1][0].distanceKm) : Number.POSITIVE_INFINITY;
+      return ad - bd || (a[1][0].supermarket || '').localeCompare(b[1][0].supermarket || '');
+    }).forEach(([code, storeItems]) => {
+      const section = text('section', '', 'buy-store-group');
+      const header = text('div', '', 'buy-store-header');
+      const identity = text('div', '', 'buy-store-identity');
+      const storeName = storeItems[0].supermarket || code;
+      const remaining = storeItems
+        .filter((item) => !item.bought)
+        .reduce((total, item) => total + Math.max(1, Number(item.quantity) || 1), 0);
+      const title = text('div', '', 'buy-store-title');
+      const distance = storeItems[0].distanceKm != null && Number.isFinite(Number(storeItems[0].distanceKm))
+        ? `${Number(storeItems[0].distanceKm).toFixed(1)} km away · ` : '';
+      title.append(text('h3', storeName), text('span', `${distance}${remaining} left · ${storeItems.length} product${storeItems.length === 1 ? '' : 's'}`));
+      if (storeItems[0].mapUrl) title.append(externalLink('Directions', storeItems[0].mapUrl, 'store-directions'));
+      identity.append(retailerLogo(code, storeName, 'buy-store-logo'), title);
+      const subtotalEur = storeItems.filter((item) => !item.bought)
+        .reduce((sum, item) => sum + (Number(item.priceEur) || 0) * Math.max(1, Number(item.quantity) || 1), 0);
+      const subtotalInr = storeItems.filter((item) => !item.bought)
+        .reduce((sum, item) => sum + (Number(item.priceInr) || 0) * Math.max(1, Number(item.quantity) || 1), 0);
+      const subtotal = text('div', formatEuro(subtotalEur), 'buy-store-subtotal');
+      if (subtotalInr) subtotal.append(text('small', `≈ ${formatInr(subtotalInr)}`));
+      header.append(identity, subtotal);
+      section.append(header);
+      const list = text('div', '', 'buy-store-items');
+      storeItems.forEach((item) => {
+        const row = text('article', '', `buy-item${item.bought ? ' bought' : ''}`);
+        const check = document.createElement('input');
+        check.type = 'checkbox';
+        check.checked = Boolean(item.bought);
+        check.setAttribute('aria-label', `Mark ${item.productName} as bought`);
+        check.addEventListener('change', () => changeBuyItem(item.id, 'toggle'));
+        const copy = text('div', '', 'buy-item-copy');
+        copy.append(
+          text('strong', item.productName),
+          text('span', `${item.amount || 'Package size not listed'} · ${formatEuro(Number(item.priceEur))}${item.priceInr ? ` · ≈ ${formatInr(Number(item.priceInr))}` : ''}`),
+        );
+        const actions = text('div', '', 'buy-item-actions');
+        const quantity = text('div', '', 'quantity-control');
+        const minus = text('button', '−');
+        const plus = text('button', '+');
+        minus.type = plus.type = 'button';
+        minus.setAttribute('aria-label', `Decrease quantity of ${item.productName}`);
+        plus.setAttribute('aria-label', `Increase quantity of ${item.productName}`);
+        minus.disabled = (Number(item.quantity) || 1) <= 1;
+        minus.addEventListener('click', () => changeBuyItem(item.id, 'decrease'));
+        plus.addEventListener('click', () => changeBuyItem(item.id, 'increase'));
+        quantity.append(minus, text('span', String(Math.max(1, Number(item.quantity) || 1))), plus);
+        actions.append(quantity, productDestination(item, 'text-button'));
+        const remove = text('button', 'Remove', 'text-button remove-buy-item');
+        remove.type = 'button';
+        remove.addEventListener('click', () => changeBuyItem(item.id, 'remove'));
+        actions.append(remove);
+        row.append(check, copy, actions);
+        list.append(row);
+      });
+      section.append(list);
+      host.append(section);
+    });
+  }
+
   function renderCheapest(row) {
     const host = $('cheapest-result');
     host.replaceChildren();
     host.hidden = !row;
     if (!row) return;
     const copy = document.createElement('div');
+    const storeLine = text('div', '', 'cheapest-store-line');
+    storeLine.append(retailerLogo(row.code, row.supermarket, 'cheapest-logo'), text('h3', row.supermarket));
     copy.append(
       text('div', row.is_best_value ? 'BEST VALUE NEAR YOU' : 'LOWEST PACK PRICE', 'section-kicker'),
-      text('h3', row.supermarket),
+      storeLine,
       text('p', row.product_name),
     );
     const meta = text('div', '', 'cheapest-meta');
     meta.append(priceBlock(row));
+    meta.append(veganConfidenceBadge(row));
     const locationLabel = row.distance_km == null ? 'Online catalogue' : `${row.distance_km.toFixed(1)} km away`;
     meta.append(text('span', `${locationLabel} · ${row.amount || 'Package size not listed'}`));
-    host.append(copy, meta, externalLink(`View at ${row.supermarket}`, row.product_url, 'button primary small'));
+    const actions = text('div', '', 'cheapest-actions');
+    actions.append(productDestination(row, 'button primary small'));
+    const add = text('button', 'Add to buy list', 'button light small');
+    add.type = 'button';
+    add.dataset.buyId = buyItemId(row);
+    add.addEventListener('click', () => addToBuyList(row));
+    actions.append(add);
+    host.append(copy, meta, actions);
+    syncBuyButtons();
   }
 
   function renderShopResult(row) {
     const card = text('article', '', `shop-price-card${row.available ? '' : ' unavailable'}`);
     const top = text('div', '', 'shop-price-top');
-    const brand = text('span', row.supermarket.slice(0, 2), 'shop-price-monogram');
+    const brand = retailerLogo(row.code, row.supermarket, 'shop-price-logo');
     const heading = document.createElement('div');
     heading.append(
       text('h3', row.supermarket),
@@ -269,7 +530,7 @@
     if (row.available) {
       const label = row.dietary_status === 'compatible' ? 'Preference match' : (row.dietary_status === 'excluded' ? 'Does not match' : 'Scan to confirm');
       top.append(text('span', label, `diet-badge ${row.dietary_status}`));
-      card.append(top, text('p', row.product_name, 'shop-product-name'));
+      card.append(top, veganConfidenceBadge(row), text('p', row.product_name, 'shop-product-name'));
       if (row.amount) card.append(text('span', row.amount, 'shop-pack-size'));
       card.append(priceBlock(row));
       const flags = text('div', '', 'price-flags');
@@ -278,7 +539,12 @@
       if (flags.childNodes.length) card.append(flags);
       card.append(text('p', row.dietary_note, 'diet-note'));
       const actions = text('div', '', 'shop-card-actions');
-      actions.append(externalLink('View product', row.product_url, 'button secondary small'));
+      actions.append(productDestination(row, 'button secondary small'));
+      const add = text('button', 'Add to buy list', 'button buy-button small');
+      add.type = 'button';
+      add.dataset.buyId = buyItemId(row);
+      add.addEventListener('click', () => addToBuyList(row));
+      actions.append(add);
       if (row.dietary_status !== 'compatible') {
         const scanButton = text('button', 'Scan label', 'text-button');
         scanButton.type = 'button';
@@ -287,10 +553,11 @@
       }
       card.append(actions);
     } else {
+      top.append(text('span', 'Not found', 'availability-badge'));
       card.append(
         top,
-        text('p', 'No comparable catalogue price found for this item.', 'shop-product-name'),
-        text('p', 'Open the supermarket search to check its current range.', 'diet-note'),
+        text('p', `This item was not found at ${row.supermarket}.`, 'shop-product-name'),
+        text('p', 'No matching product or comparable catalogue price is available here right now.', 'diet-note'),
         externalLink(`Search ${row.supermarket}`, row.search_url, 'button secondary small'),
       );
     }
@@ -307,15 +574,22 @@
       : 'INR conversion temporarily unavailable';
     const list = $('shop-result-list');
     list.replaceChildren();
-    (data.results || []).forEach((row) => list.append(renderShopResult(row)));
-    $('result-count').textContent = `${(data.results || []).length} checked`;
-    const best = (data.results || []).find((row) => row.is_best_value) || (data.results || []).find((row) => row.is_lowest_pack);
+    const visibleResults = (data.results || []).filter((row) => row.available);
+    visibleResults.forEach((row) => list.append(renderShopResult(row)));
+    if (!visibleResults.length) list.append(text('div', 'No matching products were found at the nearby supermarkets.', 'empty-state shop-empty-state'));
+    syncBuyButtons();
+    const hiddenCount = Math.max(0, Number(data.stores_without_matches) || 0);
+    $('result-count').textContent = `${visibleResults.length} match${visibleResults.length === 1 ? '' : 'es'}${hiddenCount ? ` · ${hiddenCount} without results hidden` : ''}`;
+    const best = visibleResults.find((row) => row.is_best_value) || visibleResults.find((row) => row.is_lowest_pack);
     renderCheapest(best);
     const stores = $('nearby-store-list');
     stores.replaceChildren();
     (data.nearby_stores || []).forEach((store) => {
       const label = `${store.name}${store.distance_km == null ? '' : ` · ${store.distance_km.toFixed(1)} km`}`;
-      stores.append(externalLink(label, store.map_url, 'nearby-store-chip'));
+      const chip = externalLink('', store.map_url, 'nearby-store-chip');
+      if (store.code) chip.append(retailerLogo(store.code, store.name, 'nearby-store-logo'));
+      chip.append(text('span', label));
+      stores.append(chip);
     });
     const source = $('price-source-note');
     source.replaceChildren(
@@ -351,6 +625,7 @@
     setShopSearchBusy(true);
     try {
       const data = await api('/api/shop-search/', { method: 'POST', body: form, signal: controller.signal });
+      rememberLocation(data.location_name || manual);
       renderShopSearch(data);
       $('shop-search-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
@@ -554,6 +829,7 @@
   }
 
   function renderHistory() {
+    renderBuyList();
     const saved = history();
     $('history-list').replaceChildren();
     $('clear-history').hidden = !saved.length;
@@ -668,10 +944,15 @@
   $('manual-location-toggle').addEventListener('click', () => {
     $('manual-location-wrap').hidden = false;
     $('manual-location').focus();
+    $('manual-location').select();
   });
   $('manual-location').addEventListener('input', () => {
-    const manual = $('manual-location').value.trim();
-    setLocationLabel(manual || 'Use location');
+    const value = $('manual-location').value.trim();
+    if (value) setLocationLabels(`${value} — compare to save`, value);
+    else {
+      const previous = savedLocation();
+      setLocationLabels(previous || 'Choose a location', previous || 'Use location');
+    }
   });
   document.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => changePage(button.dataset.page)));
   document.querySelectorAll('[data-ingredients-lang]').forEach((button) => button.addEventListener('click', () => setIngredientLanguage(button.dataset.ingredientsLang)));
@@ -696,6 +977,17 @@
     const savedPreference = localStorage.getItem('foodlens.preference');
     if (Object.hasOwn(names, savedPreference)) document.querySelector(`input[value="${savedPreference}"]`).checked = true;
   } catch {}
+
+  $('clear-bought').addEventListener('click', () => {
+    if (!confirm('Remove every checked item from your buy list?')) return;
+    try {
+      saveBuyList(buyList().filter((item) => !item.bought));
+      renderBuyList();
+      toast('Bought items removed.');
+    } catch {
+      toast('The buy list could not be updated.');
+    }
+  });
 
   $('clear-history').addEventListener('click', () => {
     if (!confirm('Delete every saved scan on this device?')) return;
@@ -777,6 +1069,8 @@
     );
   });
 
+  applySavedLocation();
+  updateBuyListCount();
   updateHome();
   changePage('home');
   let onboarded = false;

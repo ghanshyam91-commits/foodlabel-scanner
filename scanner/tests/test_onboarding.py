@@ -26,7 +26,8 @@ class PreferenceTests(TestCase):
         html = (Path(__file__).parents[1] / 'templates/scanner/index.html').read_text()
         for marker in ['onboarding-dialog', 'settings-page', 'remember-consent',
                        'scan-launch', 'scan-dialog', 'capture="environment"', '.heic,.heif',
-                       'product-search-form', 'manual-location', 'shop-result-list']:
+                       'product-search-form', 'manual-location', 'shop-result-list',
+                       'buy-list-groups', 'buy-list-count', 'clear-bought']:
             self.assertIn(marker, html)
         self.assertNotIn('id="consent"', html)
 
@@ -57,7 +58,8 @@ class PreferenceTests(TestCase):
         self.assertNotIn('Search in English. Shop in Dutch.', html)
         self.assertNotIn('Trending verified picks', html)
         self.assertNotIn('Aisle tip:', html)
-        self.assertNotIn('id="use-location"', html)
+        self.assertIn('id="use-location"', html)
+        self.assertLess(html.index('id="location-label"'), html.index('id="product-search-query"'))
 
 
 class HeicTests(TestCase):

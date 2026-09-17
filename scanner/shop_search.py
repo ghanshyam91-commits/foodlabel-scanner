@@ -6,6 +6,7 @@ prices. Nearby store discovery uses OpenStreetMap/Overpass and no location is st
 """
 from __future__ import annotations
 
+import base64
 import json
 import math
 import re
@@ -19,6 +20,7 @@ from difflib import SequenceMatcher
 from email.utils import parsedate_to_datetime
 from urllib.parse import quote_plus, urljoin, urlparse
 from xml.etree import ElementTree
+from xml.sax.saxutils import escape
 
 import httpx
 
@@ -27,9 +29,11 @@ from .rules import PREFERENCES
 CATALOG_URL = 'https://www.checkjebon.nl/data/supermarkets.json'
 OVERPASS_URL = 'https://overpass-api.de/api/interpreter'
 NOMINATIM_URL = 'https://nominatim.openstreetmap.org/search'
+NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
 ECB_RATES_URL = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml'
 USER_AGENT = 'FoodLens/1.0 (+https://github.com/ghanshyam91-commits/foodlabel-scanner)'
 MAX_CATALOG_BYTES = 20_000_000
+MAX_LOGO_BYTES = 200_000
 
 PREFERENCE_LABELS = {
     'vegan': 'Vegan',
@@ -65,6 +69,11 @@ RETAILERS = {
     'vomar': {'name': 'Vomar', 'aliases': ('vomar',), 'home': 'https://www.vomar.nl/',
               'search': 'https://www.vomar.nl/zoeken?q={query}', 'hosts': ('vomar.nl', 'www.vomar.nl')},
 }
+
+# Other feeds currently contain search pages, stale paths, or product pages that
+# reject direct visitors. Those destinations are presented honestly as searches.
+EXACT_PRODUCT_LINK_RETAILERS = {'jumbo'}
+NO_USABLE_PRODUCT_LINK_RETAILERS = {'ah', 'lidl'}
 
 LOCAL_PHRASES = {
     'oat milk': ('haverdrink', 'havermelk'), 'soy milk': ('sojadrink', 'sojamelk'),
@@ -109,6 +118,31 @@ _catalog_cache: dict = {'expires': 0.0, 'stores': None, 'updated': None}
 _catalog_lock = threading.Lock()
 _rate_cache: dict = {'expires': 0.0, 'rate': None, 'date': None}
 _rate_lock = threading.Lock()
+_logo_cache: dict[str, tuple[float, bytes, str]] = {}
+_logo_lock = threading.Lock()
+
+LOGO_FALLBACKS = {
+    'ah': ('#00a1e4', '#ffffff', 'ah'),
+    'aldi': ('#00205b', '#ffd100', 'ALDI'),
+    'dekamarkt': ('#009a44', '#ffffff', 'Deka'),
+    'dirk': ('#e30613', '#ffffff', 'Dirk'),
+    'ekoplaza': ('#6f9837', '#ffffff', 'Ekoplaza'),
+    'hoogvliet': ('#e30613', '#ffffff', 'Hoogvliet'),
+    'jumbo': ('#ffd400', '#171717', 'Jumbo'),
+    'lidl': ('#0050aa', '#ffdf00', 'LIDL'),
+    'plus': ('#007a3d', '#ffffff', 'PLUS'),
+    'poiesz': ('#d71920', '#ffffff', 'Poiesz'),
+    'spar': ('#007a33', '#ffffff', 'SPAR'),
+    'vomar': ('#f58220', '#ffffff', 'Vomar'),
+}
+
+RETAILER_LOGO_HOSTS = {
+    'ah': {'static.ah.nl'},
+    'aldi': {'s7g10.scene7.com'},
+    'dekamarkt': {'d3r3h30p75xj6a.cloudfront.net'},
+    'dirk': {'d3r3h30p75xj6a.cloudfront.net'},
+    'plus': {'play-lh.googleusercontent.com'},
+}
 
 
 def normalize(value: str) -> str:
@@ -254,6 +288,112 @@ def load_catalog() -> tuple[list[dict], str | None]:
         return _catalog_cache['stores'], _catalog_cache['updated']
 
 
+def fallback_retailer_logo(code: str) -> tuple[bytes, str]:
+    """Return a small, local brand-colour fallback if the catalogue icon is unavailable."""
+    if code not in RETAILERS:
+        raise ValueError('Unknown supermarket.')
+    background, foreground, label = LOGO_FALLBACKS[code]
+    font_size = 28 if len(label) <= 4 else 18 if len(label) <= 6 else 13
+    svg = (
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" role="img" '
+        f'aria-label="{escape(RETAILERS[code]["name"])} logo">'
+        f'<rect width="96" height="96" rx="22" fill="{background}"/>'
+        f'<text x="48" y="50" text-anchor="middle" dominant-baseline="middle" '
+        f'font-family="Arial,Helvetica,sans-serif" font-size="{font_size}" font-weight="800" '
+        f'fill="{foreground}">{escape(label)}</text></svg>'
+    )
+    return svg.encode('utf-8'), 'image/svg+xml'
+
+
+def _validated_logo_url(code: str, value: str) -> str | None:
+    candidate = urljoin(CATALOG_URL, value)
+    parsed = urlparse(candidate)
+    hostname = (parsed.hostname or '').casefold()
+    checkjebon_host = hostname == 'checkjebon.nl' or hostname.endswith('.checkjebon.nl')
+    official_host = hostname in RETAILERS[code]['hosts'] or hostname in RETAILER_LOGO_HOSTS.get(code, set())
+    try:
+        safe_port = parsed.port in (None, 443)
+    except ValueError:
+        safe_port = False
+    if (parsed.scheme != 'https' or parsed.username or parsed.password
+            or not safe_port or not (checkjebon_host or official_host)):
+        return None
+    return candidate
+
+
+def _validate_logo_content(content: bytes, content_type: str) -> tuple[bytes, str]:
+    mime = content_type.split(';', 1)[0].strip().casefold()
+    if not content or len(content) > MAX_LOGO_BYTES:
+        raise ShopSearchError('The supermarket logo response was invalid.')
+    if mime == 'image/png' and content.startswith(b'\x89PNG\r\n\x1a\n'):
+        return content, mime
+    if mime == 'image/jpeg' and content.startswith(b'\xff\xd8'):
+        return content, mime
+    if mime == 'image/webp' and content[:4] == b'RIFF' and content[8:12] == b'WEBP':
+        return content, mime
+    if mime == 'image/gif' and content[:6] in {b'GIF87a', b'GIF89a'}:
+        return content, mime
+    if mime == 'image/avif' and len(content) >= 12 and content[4:8] == b'ftyp' and content[8:12] in {b'avif', b'avis'}:
+        return content, mime
+    if mime in {'image/x-icon', 'image/vnd.microsoft.icon'} and content.startswith(b'\x00\x00\x01\x00'):
+        return content, 'image/x-icon'
+    if mime == 'image/svg+xml':
+        try:
+            markup = content.decode('utf-8')
+            root = ElementTree.fromstring(markup)
+        except (UnicodeDecodeError, ElementTree.ParseError) as exc:
+            raise ShopSearchError('The supermarket logo response was invalid.') from exc
+        lowered = markup.casefold()
+        unsafe = ('<script', '<foreignobject', 'javascript:', ' onload=', ' onerror=', ' href=', 'xlink:href=')
+        if not root.tag.casefold().endswith('svg') or any(marker in lowered for marker in unsafe):
+            raise ShopSearchError('The supermarket logo response was invalid.')
+        return content, mime
+    raise ShopSearchError('The supermarket logo response was not a supported image.')
+
+
+def load_retailer_logo(code: str) -> tuple[bytes, str]:
+    """Load a catalogue-provided retailer mark through a bounded, allow-listed proxy."""
+    if code not in RETAILERS:
+        raise ValueError('Unknown supermarket.')
+    now = time.monotonic()
+    cached = _logo_cache.get(code)
+    if cached and now < cached[0]:
+        return cached[1], cached[2]
+    with _logo_lock:
+        now = time.monotonic()
+        cached = _logo_cache.get(code)
+        if cached and now < cached[0]:
+            return cached[1], cached[2]
+        catalogue, _ = load_catalog()
+        store = next((item for item in catalogue if str(item.get('n') or '') == code), None)
+        raw = str((store or {}).get('i') or '').strip()
+        if not raw:
+            raise ShopSearchError('This supermarket does not provide a logo.')
+        if raw.casefold().startswith('data:image/'):
+            match = re.fullmatch(r'data:(image/(?:png|jpeg|webp|svg\+xml));base64,([a-zA-Z0-9+/=\s]+)', raw)
+            if not match:
+                raise ShopSearchError('The supermarket logo response was invalid.')
+            try:
+                content = base64.b64decode(re.sub(r'\s+', '', match.group(2)), validate=True)
+            except (ValueError, TypeError) as exc:
+                raise ShopSearchError('The supermarket logo response was invalid.') from exc
+            content, content_type = _validate_logo_content(content, match.group(1))
+        else:
+            url = _validated_logo_url(code, raw)
+            if not url:
+                raise ShopSearchError('The supermarket logo host was not allowed.')
+            try:
+                with httpx.Client(timeout=httpx.Timeout(10, connect=5), follow_redirects=False) as client:
+                    with client.stream('GET', url, headers={'User-Agent': USER_AGENT, 'Accept': 'image/*'}) as response:
+                        content, _ = _bounded_response(response, MAX_LOGO_BYTES)
+                        content_type = response.headers.get('content-type', '')
+                content, content_type = _validate_logo_content(content, content_type)
+            except httpx.HTTPError as exc:
+                raise ShopSearchError('The supermarket logo is temporarily unavailable.') from exc
+        _logo_cache[code] = (now + 86_400, content, content_type)
+        return content, content_type
+
+
 def _haversine(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
     radius = 6371.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
@@ -290,6 +430,22 @@ def geocode_location(location: str) -> tuple[float, float]:
     except (ShopSearchError, httpx.HTTPError, ValueError, TypeError, KeyError, IndexError, json.JSONDecodeError) as exc:
         raise ValueError('That Dutch city or postcode could not be found.') from exc
     return lat, lon
+
+
+def reverse_geocode_location(lat: float, lon: float) -> str | None:
+    """Resolve rounded coordinates to a locality name without persisting coordinates."""
+    try:
+        data = _read_json_url(
+            NOMINATIM_REVERSE_URL,
+            params={'lat': f'{float(lat):.3f}', 'lon': f'{float(lon):.3f}', 'format': 'jsonv2', 'zoom': 12},
+            maximum=80_000,
+        )
+        address = data.get('address') or {}
+        locality = next((str(address.get(key) or '').strip() for key in
+                         ('city', 'town', 'village', 'municipality', 'hamlet') if address.get(key)), '')
+        return validate_location_text(locality) if locality else None
+    except (ShopSearchError, httpx.HTTPError, ImportError, ValueError, TypeError, KeyError, json.JSONDecodeError):
+        return None
 
 
 def nearby_supermarkets(lat: float, lon: float, limit: int = 10) -> list[dict]:
@@ -381,6 +537,30 @@ def _dietary_status(product_name: str, preference: str) -> tuple[str, str]:
     return 'uncertain', 'The product name alone cannot confirm your preference. Scan the package before buying.'
 
 
+def _vegan_confidence(product_name: str) -> tuple[int, str]:
+    """Return a conservative, name-only vegan likelihood for display in search results."""
+    name = normalize(product_name)
+    explicit = ('vegan', 'veganistisch', 'plantaardig', 'plant based', 'plant-based')
+    animal = ('kip', 'vlees', 'vis', 'zalm', 'tonijn', 'ham', 'spek', 'bacon', 'gelatine',
+              'melk', 'kaas', 'boter', 'room', 'yoghurt', 'ei', 'eieren', 'honing')
+    vegetarian = ('vegetarisch', 'vegetarian', 'vleesvervanger')
+    plant_milks = ('havermelk', 'sojamelk', 'amandelmelk', 'kokosmelk', 'rijstmelk')
+    plant_staples = ('tofu', 'tempeh', 'haver', 'soja', 'amandel', 'kokos', 'linzen',
+                     'kikkererwten', 'bonen', 'rijst', 'tomaat', 'aardappel', 'banaan',
+                     'appel', 'sinaasappel', 'groente', 'fruit')
+    if any(marker in name for marker in explicit):
+        return 92, 'The product name explicitly says vegan or plant-based.'
+    if any(marker in name for marker in plant_milks):
+        return 72, 'The name looks plant-based, but ingredients were not checked.'
+    if any(marker in name for marker in animal):
+        return 8, 'The product name contains an animal-derived food term.'
+    if any(marker in name for marker in plant_staples):
+        return 72, 'The name looks plant-based, but ingredients were not checked.'
+    if any(marker in name for marker in vegetarian):
+        return 45, 'Vegetarian wording alone does not confirm vegan ingredients.'
+    return 30, 'The product name does not provide enough evidence that it is vegan.'
+
+
 def _match_score(name: str, phrases: list[str], allow_fuzzy: bool = False) -> float | None:
     candidate = normalize(name)
     candidate_tokens = set(candidate.split())
@@ -441,12 +621,19 @@ def find_product(products: list[dict], phrases: list[str], preference: str,
     return {'raw': product, 'dietary_status': status, 'dietary_note': note, 'match_score': round(score, 3)}
 
 
-def _safe_product_url(code: str, base: str, path: str, search_url: str) -> str:
+def _safe_product_url(code: str, base: str, path: str, search_url: str) -> tuple[str, bool]:
+    if code in NO_USABLE_PRODUCT_LINK_RETAILERS:
+        return '', False
     if not path:
-        return search_url
+        return search_url, False
     candidate = urljoin(base, path)
     parsed = urlparse(candidate)
-    return candidate if parsed.scheme == 'https' and parsed.hostname in RETAILERS[code]['hosts'] else search_url
+    looks_like_search = any(marker in parsed.path.casefold() for marker in ('/search', '/zoeken', '/zoekresultaten'))
+    generic_page = parsed.path.rstrip('/') == '' or candidate.rstrip('/') == RETAILERS[code]['home'].rstrip('/')
+    exact = (code in EXACT_PRODUCT_LINK_RETAILERS and parsed.scheme == 'https'
+             and parsed.hostname in RETAILERS[code]['hosts']
+             and not looks_like_search and not generic_page)
+    return (candidate, True) if exact else (search_url, False)
 
 
 def _search_url(code: str, query_nl: str) -> str:
@@ -489,13 +676,18 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
     query = validate_query(query)
     if preference not in PREFERENCES:
         raise ValueError('Choose a valid dietary preference.')
-    location_mode = 'current location'
+    location_name = ''
+    location_mode = 'Current location'
     if lat is None or lon is None:
         if location_text:
-            lat, lon = geocode_location(location_text)
-            location_mode = validate_location_text(location_text)
+            location_name = validate_location_text(location_text)
+            lat, lon = geocode_location(location_name)
+            location_mode = location_name
         else:
             lat = lon = None
+    else:
+        location_name = reverse_geocode_location(lat, lon) or 'Current location'
+        location_mode = location_name
     nearby = nearby_supermarkets(round(float(lat), 3), round(float(lon), 3)) if lat is not None and lon is not None else []
     translation = translate_query(query, preference, api_key, model)
     catalogue, updated = load_catalog()
@@ -523,6 +715,7 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
         match = find_product(catalog_store.get('d') or [], phrases, preference, _size_details(query))
         row = {'code': code, 'supermarket': RETAILERS[code]['name'],
                'distance_km': nearby_store.get('distance_km'), 'map_url': nearby_store.get('map_url'),
+               'logo_url': f'/api/shop-logo/{code}/',
                'search_url': search_url, 'available': bool(match), 'is_lowest_pack': False,
                'is_best_value': False}
         if match:
@@ -530,13 +723,19 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
             amount, unit = _size_details(str(product.get('s') or ''))
             unit_price = round(price / amount, 2) if amount else None
             product_name = str(product.get('n') or 'Product').replace('\ufffd', '').strip()[:180]
+            product_url, product_url_is_exact = _safe_product_url(
+                code, str(catalog_store.get('u') or RETAILERS[code]['home']),
+                str(product.get('l') or ''), search_url)
+            vegan_confidence, vegan_confidence_note = _vegan_confidence(product_name)
             row.update(product_name=product_name, amount=str(product.get('s') or '').strip()[:60],
                        price_eur=price, price_inr=round(price * rate) if rate else None,
                        unit_price_eur=unit_price, unit_price_inr=round(unit_price * rate) if rate and unit_price else None,
                        unit=unit, dietary_status=match['dietary_status'], dietary_note=match['dietary_note'],
-                       product_url=_safe_product_url(code, str(catalog_store.get('u') or RETAILERS[code]['home']),
-                                                     str(product.get('l') or ''), search_url))
+                       vegan_confidence=vegan_confidence, vegan_confidence_note=vegan_confidence_note,
+                       product_url=product_url, product_url_is_exact=product_url_is_exact)
         results.append(row)
+    stores_without_matches = sum(not row['available'] for row in results)
+    results = [row for row in results if row['available']]
     available = [row for row in results if row['available'] and row.get('dietary_status') != 'excluded']
     preferred = [row for row in available if row.get('dietary_status') == 'compatible'] or available
     if preferred:
@@ -565,7 +764,10 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
         'preference_query_nl': translation.preference_query_nl,
         'translation_source': translation.source, 'preference': preference,
         'preference_label': PREFERENCE_LABELS[preference], 'location_label': location_mode,
-        'nearby_stores': nearby[:10], 'results': results,
+        'location_name': location_name or location_mode,
+        'nearby_stores': [store for store in nearby[:10]
+                          if store.get('code') in {row['code'] for row in results}],
+        'results': results, 'stores_without_matches': stores_without_matches,
         'price_data_updated': updated_label, 'eur_to_inr': rate, 'exchange_rate_date': rate_date,
         'searched_at': datetime.now(timezone.utc).isoformat(),
         'input_tokens': translation.input_tokens, 'output_tokens': translation.output_tokens,

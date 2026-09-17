@@ -65,18 +65,22 @@
           <h2 id="grocery-search-title">Find the best price</h2>
         </div>
         <form id="product-search-form">
+          <div class="search-location-row">
+            <span class="location-current"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg><span><small>SHOPPING NEAR</small><strong id="location-label">Choose a location</strong></span></span>
+            <button id="use-location" class="location-button" type="button">Use current location</button>
+            <span class="location-or">or</span>
+            <button id="manual-location-toggle" class="inline-link" type="button">Set city or postcode</button>
+          </div>
+          <div id="manual-location-wrap" class="manual-location" hidden>
+            <label for="manual-location">City or postcode</label>
+            <input id="manual-location" name="location" maxlength="80" autocomplete="postal-code" placeholder="For example, Nijmegen or 6525 AJ">
+            <span>Saved after a successful search</span>
+          </div>
           <label class="sr-only" for="product-search-query">Search for a grocery item in English</label>
           <div class="grocery-search-bar">
             <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
             <input id="product-search-query" name="query" type="search" maxlength="80" autocomplete="off" placeholder="Search groceries in English" required>
             <button id="product-search-button" class="button primary" type="submit">Compare prices</button>
-          </div>
-          <div class="search-location-row">
-            <button id="manual-location-toggle" class="inline-link" type="button">Enter city or postcode</button>
-          </div>
-          <div id="manual-location-wrap" class="manual-location" hidden>
-            <label for="manual-location">City or postcode</label>
-            <input id="manual-location" name="location" maxlength="80" autocomplete="postal-code" placeholder="For example, Nijmegen or 6525 AJ">
           </div>
         </form>
         <div id="shop-search-progress" class="shop-search-progress" role="status" hidden><span class="spinner"></span><strong>Comparing nearby supermarkets…</strong></div>
@@ -98,13 +102,13 @@
         </div>
         <div class="shop-grid">
           <a class="shop-card" href="https://www.ah.nl/producten/20128/vegetarisch-vegan-en-plantaardig" target="_blank" rel="noopener noreferrer">
-            <span class="shop-monogram">ah</span><strong>Albert Heijn</strong>
+            <span class="shop-monogram"><img src="/api/shop-logo/ah/" alt="Albert Heijn logo" loading="lazy"></span><strong>Albert Heijn</strong>
           </a>
           <a class="shop-card" href="https://www.jumbo.com/" target="_blank" rel="noopener noreferrer">
-            <span class="shop-monogram">J</span><strong>Jumbo</strong>
+            <span class="shop-monogram"><img src="/api/shop-logo/jumbo/" alt="Jumbo logo" loading="lazy"></span><strong>Jumbo</strong>
           </a>
           <a class="shop-card" href="https://www.lidl.nl/" target="_blank" rel="noopener noreferrer">
-            <span class="shop-monogram">Lidl</span><strong>Lidl</strong>
+            <span class="shop-monogram"><img src="/api/shop-logo/lidl/" alt="Lidl logo" loading="lazy"></span><strong>Lidl</strong>
           </a>
         </div>
       </section>
@@ -206,13 +210,21 @@
     </section>
 
     <section id="history-page" class="page history-page" hidden>
-      <header class="page-header"><button type="button" class="round-button" data-page="home" aria-label="Back to home"><svg class="icon"><use href="#i-back"/></svg></button><h1>Saved scans</h1><span class="profile-dot"><svg class="icon"><use href="#i-user"/></svg></span></header>
-      <div class="hero"><div class="eyebrow"><span class="eyebrow-dot"></span>ON THIS DEVICE ONLY</div><h1>Your saved <span>label checks.</span></h1><p>Results are saved only when you choose. Photos are never included.</p></div><div id="history-list"></div><button class="button secondary" id="clear-history" hidden>Delete saved scans</button>
+      <header class="page-header"><button type="button" class="round-button" data-page="home" aria-label="Back to home"><svg class="icon"><use href="#i-back"/></svg></button><h1>Saved &amp; shopping list</h1><span class="profile-dot"><svg class="icon"><use href="#i-user"/></svg></span></header>
+      <div class="hero"><div class="eyebrow"><span class="eyebrow-dot"></span>READY FOR YOUR NEXT SHOP</div><h1>Your buy list,<br><span>sorted by store.</span></h1><p>Products and saved label checks stay on this device.</p></div>
+      <section class="buy-list-panel" aria-labelledby="buy-list-title">
+        <div class="saved-section-heading"><div><div class="section-kicker">SHOPPING LIST</div><h2 id="buy-list-title">What to buy, store by store</h2><p id="buy-list-summary">Add products from a price comparison.</p></div><button id="clear-bought" class="button secondary small" type="button" hidden>Remove bought</button></div>
+        <div id="buy-list-groups"></div>
+      </section>
+      <section class="saved-scans-panel" aria-labelledby="saved-scans-title">
+        <div class="saved-section-heading"><div><div class="section-kicker">LABEL HISTORY</div><h2 id="saved-scans-title">Saved label checks</h2></div><button class="button secondary small" id="clear-history" type="button" hidden>Delete saved scans</button></div>
+        <div id="history-list"></div>
+      </section>
     </section>
 
     <section id="about-page" class="page about-page" hidden>
       <header class="page-header"><button type="button" class="round-button" data-page="settings" aria-label="Back to settings"><svg class="icon"><use href="#i-back"/></svg></button><h1>Privacy &amp; transparency</h1><span class="profile-dot"><svg class="icon"><use href="#i-user"/></svg></span></header>
-      <div class="hero"><div class="eyebrow"><span class="eyebrow-dot"></span>A LITTLE CLARITY</div><h1>Read the label.<br><span>Keep the final say.</span></h1></div><div class="about-card"><h2>How FoodLens works</h2><p>Gemini extracts and translates the label when configured. Without an API key, free open-source Tesseract OCR reads it locally and uses a smaller built-in Dutch–English ingredient dictionary. A separate, conservative rule engine checks the original ingredient names. Neither tool chooses the dietary verdict.</p><h3>Four deliberately cautious answers</h3><p>Vegan-compatible ingredients, vegetarian but not vegan, non-vegetarian ingredient found, or uncertain. An unreadable list, an unfamiliar ingredient, or an unresolved source blocks a positive result.</p><h3>Privacy by design</h3><p>The app removes image metadata before processing. Photos and results are not saved in the app database or application logs. With Gemini, the provider processes the photo under its own terms. In local OCR mode, the photo stays on the FoodLens server.</p><p>Saving a scan stores the text result in this browser, not your photo. Anyone using this browser profile may see saved scans. Clear them from the Saved tab.</p><h3>Not certification or allergy advice</h3><p>FoodLens cannot verify processing aids, manufacturing practices, undeclared ingredients, or product certifications. OCR and AI can misread text. Always compare with the original package.</p></div>
+      <div class="hero"><div class="eyebrow"><span class="eyebrow-dot"></span>A LITTLE CLARITY</div><h1>Read the label.<br><span>Keep the final say.</span></h1></div><div class="about-card"><h2>How FoodLens works</h2><p>Gemini extracts and translates the label when configured. Without an API key, free open-source Tesseract OCR reads it locally and uses a smaller built-in Dutch–English ingredient dictionary. A separate, conservative rule engine checks the original ingredient names. Neither tool chooses the dietary verdict.</p><h3>Four deliberately cautious answers</h3><p>Vegan-compatible ingredients, vegetarian but not vegan, non-vegetarian ingredient found, or uncertain. An unreadable list, an unfamiliar ingredient, or an unresolved source blocks a positive result.</p><h3>Privacy by design</h3><p>The app removes image metadata before processing. Photos and results are not saved in the app database or application logs. With Gemini, the provider processes the photo under its own terms. In local OCR mode, the photo stays on the FoodLens server.</p><p>Saved scans, the selected location name, and shopping-list items, quantities, and checked status stay in this browser. Raw coordinates are not stored. Photos are never included. Anyone using this browser profile may see the saved data; clear shopping items and scans from the Saved tab.</p><h3>Not certification or allergy advice</h3><p>FoodLens cannot verify processing aids, manufacturing practices, undeclared ingredients, or product certifications. OCR and AI can misread text. Always compare with the original package.</p></div>
     </section>
   </main>
 
@@ -220,7 +232,7 @@
   <nav class="bottom-nav" aria-label="Main navigation">
     <button data-page="home" aria-current="page"><svg class="icon"><use href="#i-home"/></svg><span>Home</span></button>
     <button id="scan-launch" class="scan-launch" aria-label="Scan a food label"><svg class="icon"><use href="#i-scan"/></svg><span>Scan</span></button>
-    <button data-page="history"><svg class="icon"><use href="#i-bookmark"/></svg><span>Saved</span></button>
+    <button data-page="history"><span id="buy-list-count" class="nav-count" hidden>0</span><svg class="icon"><use href="#i-bookmark"/></svg><span>Saved</span></button>
   </nav>
 
   <dialog id="scan-dialog" aria-labelledby="scan-dialog-title"><div class="dialog-handle"></div><div class="dialog-heading"><div><div class="section-kicker">START A SCAN</div><h2 id="scan-dialog-title">Choose a label photo</h2></div><button id="sheet-close" class="round-button" type="button" aria-label="Close"><svg class="icon"><use href="#i-close"/></svg></button></div><p>Keep the complete ingredients list sharp and in frame.</p><button id="sheet-camera" class="button primary full"><svg class="icon"><use href="#i-camera"/></svg>Take a photo</button><button id="sheet-gallery" class="button secondary full"><svg class="icon"><use href="#i-upload"/></svg>Choose from gallery</button></dialog>
