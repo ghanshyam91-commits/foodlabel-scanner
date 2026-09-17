@@ -36,6 +36,7 @@ class ExtractionResult:
     output_tokens: int = 0
     provider: str = 'Gemini'
     model_name: str = ''
+    confidence: int | None = None
     def __getattr__(self, name):
         return getattr(self.label, name)
 

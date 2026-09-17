@@ -716,17 +716,26 @@
 
   function resultConfidence(data) {
     const assessment = data.assessment;
-    const issueCount = Array.isArray(assessment.issues) ? assessment.issues.length : 0;
+    const supplied = Number(assessment.confidence);
+    if (Number.isFinite(supplied) && supplied > 0) {
+      return Math.max(25, Math.min(98, Math.round(supplied)));
+    }
     const ingredientCount = Array.isArray(assessment.ingredients) ? assessment.ingredients.length : 0;
-    let score = assessment.preference_match === 'uncertain' ? 55 : (assessment.preference_match === 'no' ? 95 : 91);
-    score -= Math.min(24, issueCount * 8);
-    if (ingredientCount < 2) score -= 10;
-    if (data.provider === 'Tesseract local OCR') score = Math.min(score, 78);
+    const verified = (assessment.ingredients || []).filter((row) => row.evidence_verified).length;
+    const resolved = (assessment.ingredients || []).filter((row) => row.evidence_verified && row.kind !== 'uncertain').length;
+    let score = ingredientCount ? 35 + (25 * verified / ingredientCount) + (25 * resolved / ingredientCount) : 25;
+    if (data.label?.ingredients_complete) score += 8;
+    if (assessment.preference_match === 'no') score = Math.max(score, 92);
+    if (assessment.preference_match === 'uncertain') score = Math.min(score, 84);
     return Math.max(25, Math.min(98, Math.round(score)));
   }
 
   function checkSummary(assessment) {
-    const issue = Array.isArray(assessment.issues) ? assessment.issues.find((value) => String(value || '').trim()) : '';
+    const issues = Array.isArray(assessment.issues)
+      ? assessment.issues.map((value) => String(value || '').trim()).filter(Boolean) : [];
+    const issue = issues.find((value) => /ingredient source needs checking/i.test(value))
+      || issues.find((value) => /not visible|unreadable|could not be matched/i.test(value))
+      || issues[0] || '';
     const summary = String(issue || assessment.explanation || 'The label could not be confirmed clearly.').trim();
     return summary.length > 150 ? `${summary.slice(0, 147)}…` : summary;
   }

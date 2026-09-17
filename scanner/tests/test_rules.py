@@ -1,7 +1,7 @@
 import unittest
 from pydantic import ValidationError
 from scanner.schema import LabelExtraction
-from scanner.rules import assess, ingredient_key, RULES
+from scanner.rules import assess, ingredient_key, ingredient_rule, RULES
 from scanner.demo import demo_label
 
 def label(*ingredients, complete=True, may=None):
@@ -85,6 +85,27 @@ class RuleTests(unittest.TestCase):
         self.assertEqual(assess(label('melk 20%','suiker 1,5%'))['verdict'],'vegetarian')
     def test_function_prefix(self):
         self.assertEqual(assess(label('kleurstof: E120'))['verdict'],'non_vegetarian')
+    def test_additive_function_reads_codes(self):
+        self.assertEqual(ingredient_rule('Thickeners (508 & 412)')[0], 'plant')
+        self.assertEqual(ingredient_rule('Flavour enhancer (635)')[0], 'uncertain')
+        self.assertEqual(ingredient_rule('Colour (120)')[0], 'animal')
+    def test_ambiguous_e635_gives_a_useful_check_reason(self):
+        result = assess(label('Palm oil', 'Flavour enhancer (635)'))
+        self.assertEqual(result['preference_match'], 'uncertain')
+        self.assertGreaterEqual(result['confidence'], 75)
+        self.assertIn('Flavour enhancer E635 has an unspecified source', result['issues'][0])
+    def test_indian_label_plant_aliases(self):
+        result = assess(label('Noodles: Refined wheat flour (Maida)', 'Iodized salt',
+                              'Wheat gluten', 'Onion powder'))
+        self.assertEqual(result['verdict'], 'vegan')
+        self.assertGreaterEqual(result['confidence'], 90)
+    def test_unaccounted_text_issue_does_not_echo_ocr_garbage(self):
+        item = label('water')
+        item.ingredients_text = 'water, OCR @@@ garbage'
+        item.original_text = 'Ingredients: water, OCR @@@ garbage'
+        result = assess(item)
+        self.assertTrue(any('could not be matched reliably' in issue for issue in result['issues']))
+        self.assertFalse(any('@@@' in issue for issue in result['issues']))
     def test_no_stripping_unknown_qualifiers(self):
         self.assertEqual(assess(label('plantaardige gelatine'))['verdict'],'uncertain')
     def test_accents(self):

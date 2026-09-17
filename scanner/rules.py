@@ -25,7 +25,8 @@ def add(kind: str, reason: str, aliases: str) -> None:
 add('plant', 'Plant-derived or mineral ingredient; processing aids are not verified.',
     'water|suiker|sugar|zout|salt|zeezout|sea salt|rijst|rice|bruine rijst|zilvervliesrijst|'
     'haver|oats|havervlokken|oat flakes|havermout|tarwe|wheat|tarwebloem|wheat flour|tarwemeel|'
-    'volkoren tarwemeel|bloem|flour|rijstmeel|rice flour|mais|corn|maismeel|maiszetmeel|'
+    'volkoren tarwemeel|bloem|flour|refined wheat flour|refined wheat flour (maida)|maida|wheat gluten|'
+    'rijstmeel|rice flour|mais|corn|maismeel|maiszetmeel|'
     'corn starch|cornstarch|aardappelzetmeel|potato starch|aardappelen|potatoes|zetmeel|starch|'
     'sojabonen|soybeans|soja|soy|sojameel|sojaproteine|soja-eiwit|erwteneiwit|pea protein|'
     'linzen|lentils|kikkererwten|chickpeas|bonen|beans|erwten|peas|tomaten|tomatoes|tomaat|'
@@ -40,11 +41,16 @@ add('plant', 'Plant-derived or mineral ingredient; processing aids are not verif
     'plantaardige olie|vegetable oil|plantaardig vet|vegetable fat|sesamolie|sesame oil|'
     'amandelen|almonds|hazelnoten|hazelnuts|walnoten|walnuts|pindas|pinda\'s|peanuts|'
     'cashewnoten|cashews|sesamzaad|sesame seeds|lijnzaad|flaxseed|zonnebloempitten|sunflower seeds|'
-    'peper|pepper|zwarte peper|black pepper|kaneel|cinnamon|kurkuma|turmeric|gember|ginger|'
-    'basilicum|basil|oregano|peterselie|parsley|komijn|cumin|koriander|coriander|'
+    'peper|pepper|zwarte peper|black pepper|black pepper powder|kaneel|cinnamon|kurkuma|turmeric|'
+    'turmeric powder|gember|ginger|ginger powder|basilicum|basil|oregano|peterselie|parsley|'
+    'komijn|cumin|cumin powder|koriander|coriander|coriander powder|mixed spices|spices|'
+    'onion powder|red chilli powder|red chili powder|garlic powder|aniseed powder|fenugreek powder|'
+    'toasted onion powder|clove powder|green cardamom powder|nutmeg powder|groundnut|groundnut protein|'
+    'hydrolysed groundnut protein|hydrolyzed groundnut protein|iodized salt|iodised salt|lodized salt|'
     'azijn|vinegar|citroenzuur|citric acid|ascorbinezuur|ascorbic acid|'
     'pectine|pectin|agar|agar-agar|guargom|guar gum|xanthaangom|xanthan gum|'
-    'natriumbicarbonaat|sodium bicarbonate|sojalecithine|soy lecithin|zonnebloemlecithine|sunflower lecithin')
+    'natriumbicarbonaat|sodium bicarbonate|sojalecithine|soy lecithin|zonnebloemlecithine|sunflower lecithin|'
+    'mineral|e330|e412|e451|e500|e501|e508|e150d')
 add('dairy', 'Milk-derived ingredient: not compatible with vegan preferences.',
     'melk|milk|volle melk|whole milk|halfvolle melk|semi-skimmed milk|magere melk|skimmed milk|'
     'melkpoeder|milk powder|mageremelkpoeder|magere melkpoeder|skimmed milk powder|'
@@ -80,9 +86,54 @@ def ingredient_key(original: str) -> str:
     # Only remove amounts and common ingredient-function headings, not unknown words.
     value = normalize(original)
     value = re.sub(r'\b\d+(?:[.,]\d+)?\s*%', '', value)
+    value = re.sub(r'^(?:noodles?|masala(?:\s+["\']?tastemaker["\']?)?|seasoning)\s*:\s*', '', value)
+    spice_group = re.match(r'^(?:mixed\s+)?spices?\s*(?:\(\s*\))?\s*\(?\s*(.+)$', value)
+    if spice_group and re.search(r'[a-z]', spice_group.group(1)):
+        value = spice_group.group(1)
     value = re.sub(r'^(?:emulgator|emulsifier|kleurstof|colouring|coloring|stabilisator|stabiliser|verdikkingsmiddel|thickener|voedingszuur|acidity regulator)\s*:\s*', '', value)
     value = re.sub(r'\be\s+(\d{3,4}[a-z]?)\b', r'e\1', value)
-    return re.sub(r'\s+', ' ', value).strip(' .,:;()')
+    return re.sub(r'\s+', ' ', value).strip(' .,:;')
+
+
+ADDITIVE_CONTEXT = re.compile(
+    r'\b(?:e\s*\d{3,4}|thickeners?|verdikkingsmiddel(?:en)?|acidity regulators?|voedingszuur|'
+    r'humectants?|flavou?r enhancers?|colour(?:ing)?|kleurstof|stabilisers?|stabilizers?|emulsifiers?|emulgators?)\b')
+
+
+def ingredient_rule(original: str) -> tuple[str, str]:
+    key = ingredient_key(original)
+    direct = RULES.get(key)
+    if direct:
+        return direct
+    normalized = normalize(original)
+    if not ADDITIVE_CONTEXT.search(normalized):
+        return 'uncertain', 'This ingredient is not in the reviewed starter vocabulary. Check its source.'
+    if re.search(r'flavou?r enhancers?.*?(?<!\d)(?:627|631|635)', normalized):
+        for code in ('627', '631', '635'):
+            if re.search(rf'(?<!\d){code}', normalized):
+                return RULES['e' + code]
+    without_amounts = re.sub(r'\b\d+(?:[.,]\d+)?\s*%', '', normalized)
+    codes = list(dict.fromkeys(re.findall(r'(?<!\d)(?:e\s*)?(\d{3,4}[a-z]?)(?!\d)', without_amounts)))
+    if not codes:
+        return 'uncertain', 'The additive number could not be read clearly. Check the original label.'
+    resolved = []
+    for code in codes:
+        rule = RULES.get('e' + code)
+        if rule is None and re.fullmatch(r'\d{3,4}[il]+', code):
+            rule = RULES.get('e' + re.match(r'\d+', code).group())
+        resolved.append((code, rule))
+    unknown = [code for code, rule in resolved if rule is None]
+    known = [(code, rule) for code, rule in resolved if rule is not None]
+    for kind in ('animal', 'dairy', 'egg', 'honey', 'uncertain'):
+        for code, rule in known:
+            if rule[0] == kind:
+                return rule
+    if unknown:
+        names = ', '.join('E' + code.upper() for code in unknown[:4])
+        return 'uncertain', f'{names} could not be verified from the scanned label.'
+    if known:
+        return 'plant', 'The identified additives are plant-derived, mineral, or synthetic in the reviewed reference.'
+    return 'uncertain', 'The additive source could not be verified.'
 
 def spans(text: str, phrase: str) -> list[tuple[int, int]]:
     # Whole-word matching prevents ei from matching eiwit and melk from kokosmelk.
@@ -98,8 +149,7 @@ def assess(label: LabelExtraction, preference: str = 'vegetarian_no_eggs') -> di
     for ingredient in label.ingredients:
         original = normalize(ingredient.original)
         found = spans(source, original) if source else []
-        kind, reason = RULES.get(ingredient_key(ingredient.original),
-            ('uncertain', 'This ingredient is not in the reviewed starter vocabulary. Check its source.'))
+        kind, reason = ingredient_rule(ingredient.original)
         if not found:
             kind, reason = 'uncertain', 'Ingredient could not be matched to the original ingredient-list transcription.'
         else:
@@ -122,8 +172,9 @@ def assess(label: LabelExtraction, preference: str = 'vegetarian_no_eggs') -> di
     remaining = ''.join(' ' if covered[i] else c for i, c in enumerate(source))
     remaining = re.sub(r'^\s*(?:ingredienten|ingredients)\s*:', '', remaining)
     remaining = re.sub(r'\d+(?:[.,]\d+)?\s*%', '', remaining)
-    if re.search(r'[a-z0-9]', remaining):
-        issues.append('Some ingredient-list text was not accounted for: ' + remaining.strip()[:240])
+    has_unaccounted_text = bool(re.search(r'[a-z0-9]', remaining))
+    if has_unaccounted_text:
+        issues.append('Some ingredient text could not be matched reliably. Retake a closer photo of the ingredients panel.')
     # An intentional allergen declaration can expose an omitted subingredient.
     # Precautionary may_contain is intentionally not checked here.
     allergen_groups = {
@@ -137,8 +188,22 @@ def assess(label: LabelExtraction, preference: str = 'vegetarian_no_eggs') -> di
                for kind, pattern in allergen_groups.items()):
             issues.append('An intentional allergen statement mentions ' + declaration +
                 ', but its source was not resolved in the ingredient list. Check the original label.')
-    if any(row['kind'] == 'uncertain' for row in rows):
-        issues.append('One or more ingredients need a source or translation check.')
+    uncertain_rows = [row for row in rows if row['kind'] == 'uncertain']
+    if uncertain_rows:
+        ambiguous_code = next((code for code in ('635', '631', '627')
+            if any(re.search(rf'(?<!\d){code}', normalize(row['original'])) for row in uncertain_rows)), None)
+        if ambiguous_code:
+            issues.append(f'Flavour enhancer E{ambiguous_code} has an unspecified source; check the package or manufacturer.')
+        useful_names = []
+        for row in uncertain_rows:
+            name = re.sub(r'\s+', ' ', row['english']).strip(' .,:;()')
+            letters = len(re.findall(r'[a-z]', name.casefold()))
+            if 2 <= len(name) <= 90 and letters >= max(2, len(name) // 3):
+                useful_names.append(name)
+        if useful_names and not ambiguous_code:
+            issues.append('Ingredient source needs checking: ' + ', '.join(useful_names[:3]) + '.')
+        elif not ambiguous_code:
+            issues.append('One or more ingredients need a source or translation check.')
 
     # A directly evidenced excluded ingredient establishes a mismatch even on a partial label.
     animal = 'animal' in verified_kinds
@@ -162,7 +227,22 @@ def assess(label: LabelExtraction, preference: str = 'vegetarian_no_eggs') -> di
         explanation = 'No animal-derived ingredient identified in the complete readable list within the starter reference.'
     else:
         explanation = 'There is not enough verified ingredient information to give a positive dietary result.'
+    total = len(rows)
+    verified_ratio = sum(row['evidence_verified'] for row in rows) / total if total else 0
+    resolved_ratio = sum(row['evidence_verified'] and row['kind'] != 'uncertain' for row in rows) / total if total else 0
+    confidence = 35 + round(25 * verified_ratio) + round(25 * resolved_ratio)
+    confidence += 8 if label.ingredients_complete else -12
+    if label.unreadable_sections:
+        confidence -= 10
+    if has_unaccounted_text:
+        confidence -= 8
+    if excluded and notable:
+        confidence = max(confidence, 92)
+    if uncertain_rows:
+        confidence = min(confidence, 84)
+    confidence = max(25, min(98, confidence))
     return {'verdict': verdict, 'title': title, 'explanation': explanation,
         'preference': preference, 'preference_match': match, 'ingredients': rows,
         'issues': list(dict.fromkeys(issues)), 'limitations': LIMITATIONS,
-        'ruleset_version': RULESET_VERSION, 'basis': 'Based on the scanned label — not certified'}
+        'confidence': confidence, 'ruleset_version': RULESET_VERSION,
+        'basis': 'Based on the scanned label — not certified'}

@@ -153,8 +153,12 @@ def logout(request):
     request.session.flush()
     return JsonResponse({'unlocked': False})
 
-def output(label, preference, example=False, provider='Gemini'):
-    return {'label': label.model_dump(), 'assessment': assess(label, preference),
+def output(label, preference, example=False, provider='Gemini', extraction_confidence=None):
+    assessment = assess(label, preference)
+    if extraction_confidence is not None:
+        assessment['confidence'] = min(assessment['confidence'],
+            max(25, min(98, round(float(extraction_confidence)))))
+    return {'label': label.model_dump(), 'assessment': assessment,
         'is_demo': example, 'provider': 'fictional example' if example else provider}
 
 @require_POST
@@ -187,7 +191,8 @@ def scan(request):
         if user:
             row,_=MonthlyUsage.objects.get_or_create(account=user,month=date.today().replace(day=1),model_name=getattr(result,'model_name','') or settings.GEMINI_MODEL)
             MonthlyUsage.objects.filter(pk=row.pk).update(scans=F('scans')+1,input_tokens=F('input_tokens')+getattr(result,'input_tokens',0),output_tokens=F('output_tokens')+getattr(result,'output_tokens',0))
-        return JsonResponse(output(label, preference, provider=getattr(result,'provider','Gemini')))
+        return JsonResponse(output(label, preference, provider=getattr(result,'provider','Gemini'),
+            extraction_confidence=getattr(result, 'confidence', None)))
     except ImageInputError as exc:
         return JsonResponse({'error': str(exc)}, status=400)
     except ProviderError as exc:
