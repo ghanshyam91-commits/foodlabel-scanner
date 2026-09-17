@@ -76,6 +76,44 @@
         <button class="inline-link" type="button" data-page="settings">Preferences ↗</button>
       </section>
 
+      <section class="grocery-search" aria-labelledby="grocery-search-title">
+        <div class="grocery-search-heading">
+          <div><div class="section-kicker">FIND THE BEST PRICE NEAR YOU</div><h2 id="grocery-search-title">Search in English. Shop in Dutch.</h2><p>We translate your item, compare nearby Dutch supermarkets, and show the lowest available price in euros and rupees.</p></div>
+          <span id="search-preference" class="preference-pill">Your preference</span>
+        </div>
+        <form id="product-search-form">
+          <label class="sr-only" for="product-search-query">Search for a grocery item in English</label>
+          <div class="grocery-search-bar">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
+            <input id="product-search-query" name="query" type="search" maxlength="80" autocomplete="off" placeholder="Try “oat milk”, “tofu” or “500 g rice”" required>
+            <button id="product-search-button" class="button primary" type="submit">Compare nearby</button>
+          </div>
+          <div class="search-location-row">
+            <button id="use-location" class="location-button" type="button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+              <span id="location-label">Use my current location</span>
+            </button>
+            <span class="location-or">or</span>
+            <button id="manual-location-toggle" class="inline-link" type="button">Enter Dutch city or postcode</button>
+          </div>
+          <div id="manual-location-wrap" class="manual-location" hidden>
+            <label for="manual-location">City or postcode</label>
+            <input id="manual-location" name="location" maxlength="80" autocomplete="postal-code" placeholder="For example, Nijmegen or 6525 AJ">
+          </div>
+        </form>
+        <div id="shop-search-progress" class="shop-search-progress" role="status" hidden><span class="spinner"></span><div><strong>Checking nearby supermarkets…</strong><span>Translating your item and comparing current catalogue prices.</span></div></div>
+        <p id="shop-search-error" class="error" role="alert" hidden></p>
+        <div id="shop-search-results" class="shop-search-results" hidden>
+          <div class="translation-summary"><div><span>You searched</span><strong id="searched-query"></strong></div><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14m-5-5 5 5-5 5"/></svg><div><span>Dutch search</span><strong id="translated-query"></strong></div></div>
+          <div class="comparison-meta"><span id="search-scope"></span><span id="price-update"></span></div>
+          <section id="cheapest-result" class="cheapest-result" hidden></section>
+          <div class="result-list-heading"><h3>Supermarket comparison</h3><span id="result-count"></span></div>
+          <div id="shop-result-list" class="shop-result-list"></div>
+          <details class="nearby-details"><summary>Supermarkets checked near you</summary><div id="nearby-store-list" class="nearby-store-list"></div></details>
+          <p id="price-source-note" class="price-source-note"></p>
+        </div>
+      </section>
+
       <section class="shop-section" aria-labelledby="shops-title">
         <div class="shop-heading">
           <div><h2 id="shops-title">Explore Dutch Supermarkets</h2><p>Browse supermarket ranges, then scan the package to check ingredients. Stock and recipes can change.</p></div>

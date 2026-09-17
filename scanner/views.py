@@ -10,6 +10,7 @@ from .demo import EXAMPLES, demo_label
 from .images import MAX_BYTES, ImageInputError, prepare_image
 from .provider import ProviderError, extract_label
 from .local_ocr import extract_label_local
+from .shop_search import ShopSearchError, build_shop_search
 from .models import MonthlyUsage
 from . import auth
 from .rules import PREFERENCES, assess
@@ -21,7 +22,7 @@ class PrivacyHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         response['Content-Security-Policy'] = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' blob: data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
-        response['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=()'
+        response['Permissions-Policy'] = 'camera=(self), microphone=(), geolocation=(self)'
         if not request.path.startswith(settings.STATIC_URL):
             response['Cache-Control'] = 'no-store, private'
         return response
@@ -60,6 +61,41 @@ def usage(request):
         'input_tokens':input_tokens,'output_tokens':output_tokens,'estimated_usd':round(usd,6),
         'estimated_inr':round(usd*settings.USD_TO_INR_RATE,4),'usd_to_inr_rate':settings.USD_TO_INR_RATE,
         'model':settings.GEMINI_MODEL if settings.GEMINI_API_KEY else 'Tesseract local OCR · free'})
+
+@require_POST
+def shop_search(request):
+    if settings.AUTH_REQUIRED and not auth.unlocked(request):
+        return JsonResponse({'error': 'Sign in and unlock the app first.'}, status=401)
+    if not settings.AUTH_REQUIRED and settings.SCANNER_ACCESS_CODE and not request.session.get('unlocked'):
+        return JsonResponse({'error': 'Enter your private-beta access code before comparing prices.'}, status=403)
+    try:
+        if (not hit('shop-search:' + client_id(request), settings.SHOP_SEARCHES_PER_HOUR, 3600)
+                or not hit('shop-search-daily-total', settings.SHOP_SEARCHES_PER_DAY, 86400)):
+            return JsonResponse({'error': 'Shopping search limit reached. Please try again later.'}, status=429)
+        raw_lat, raw_lon = request.POST.get('lat', '').strip(), request.POST.get('lon', '').strip()
+        if bool(raw_lat) != bool(raw_lon):
+            return JsonResponse({'error': 'Share both latitude and longitude, or enter a Dutch city.'}, status=400)
+        result = build_shop_search(
+            request.POST.get('query', ''), request.POST.get('preference', 'vegetarian_no_eggs'),
+            settings.GEMINI_API_KEY, settings.GEMINI_MODEL,
+            lat=float(raw_lat) if raw_lat else None, lon=float(raw_lon) if raw_lon else None,
+            location_text=request.POST.get('location', ''),
+        )
+        input_tokens = result.pop('input_tokens', 0)
+        output_tokens = result.pop('output_tokens', 0)
+        user = auth.account(request)
+        if user and (input_tokens or output_tokens):
+            row, _ = MonthlyUsage.objects.get_or_create(
+                account=user, month=date.today().replace(day=1), model_name=settings.GEMINI_MODEL)
+            MonthlyUsage.objects.filter(pk=row.pk).update(
+                input_tokens=F('input_tokens') + input_tokens, output_tokens=F('output_tokens') + output_tokens)
+        return JsonResponse(result)
+    except ValueError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    except ShopSearchError as exc:
+        return JsonResponse({'error': str(exc)}, status=503)
+    except QuotaUnavailable:
+        return JsonResponse({'error': 'Shopping search is temporarily unavailable.'}, status=503)
 
 @require_POST
 def unlock(request):

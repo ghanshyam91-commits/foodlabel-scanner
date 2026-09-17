@@ -80,3 +80,5 @@ CACHES = {'default': {'BACKEND': 'django.core.cache.backends.redis.RedisCache', 
     if REDIS_URL else {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': 'foodlabel-local'}}
 SCANS_PER_MINUTE = max(1, int(os.environ.get('SCANS_PER_MINUTE', '5')))
 SCANS_PER_DAY = max(1, int(os.environ.get('SCANS_PER_DAY', '100')))
+SHOP_SEARCHES_PER_HOUR = max(1, int(os.environ.get('SHOP_SEARCHES_PER_HOUR', '20')))
+SHOP_SEARCHES_PER_DAY = max(1, int(os.environ.get('SHOP_SEARCHES_PER_DAY', '500')))

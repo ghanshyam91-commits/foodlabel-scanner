@@ -17,6 +17,8 @@
     ingredientLanguage: 'english',
     progressInterval: null,
     progressTimers: [],
+    searchLocation: null,
+    shopSearchBusy: false,
   };
   const storageKey = 'foodlens.saved.v1';
   const consentKey = 'foodlens.consent.gemini.v1';
@@ -152,6 +154,200 @@
       requestAnimationFrame(() => orbit?.classList.add('pulse'));
     } catch {
       $('usage-model').textContent = 'Usage unavailable';
+    }
+  }
+
+  const formatEuro = (value) => (typeof value === 'number'
+    ? `€${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : 'Price unavailable');
+  const formatInr = (value) => (typeof value === 'number' ? `₹${Math.round(value).toLocaleString('en-IN')}` : '');
+
+  function externalLink(label, url, className = '') {
+    let valid = false;
+    try { valid = new URL(url).protocol === 'https:'; } catch {}
+    if (!valid) return text('span', label, className);
+    const link = text('a', label, className);
+    link.href = url;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    return link;
+  }
+
+  function setShopSearchBusy(busy) {
+    state.shopSearchBusy = busy;
+    $('shop-search-progress').hidden = !busy;
+    ['product-search-button', 'use-location', 'product-search-query', 'manual-location'].forEach((id) => {
+      $(id).disabled = busy;
+    });
+  }
+
+  function locationError(message) {
+    $('manual-location-wrap').hidden = false;
+    $('shop-search-error').textContent = message;
+    $('shop-search-error').hidden = false;
+    $('location-label').textContent = 'Location unavailable';
+    $('manual-location').focus();
+  }
+
+  function requestCurrentLocation() {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        const error = new Error('Location is not available in this browser. Enter a Dutch city or postcode.');
+        locationError(error.message);
+        reject(error);
+        return;
+      }
+      $('location-label').textContent = 'Finding your location…';
+      $('shop-search-error').hidden = true;
+      navigator.geolocation.getCurrentPosition((position) => {
+        state.searchLocation = {
+          lat: Number(position.coords.latitude.toFixed(3)),
+          lon: Number(position.coords.longitude.toFixed(3)),
+        };
+        $('manual-location').value = '';
+        $('manual-location-wrap').hidden = true;
+        $('location-label').textContent = 'Current location ready';
+        resolve(state.searchLocation);
+      }, () => {
+        const error = new Error('Allow location access, or enter a Dutch city or postcode.');
+        locationError(error.message);
+        reject(error);
+      }, { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 });
+    });
+  }
+
+  function priceBlock(row) {
+    const prices = text('div', '', 'shop-price');
+    prices.append(text('strong', formatEuro(row.price_eur)));
+    prices.append(text('span', row.price_inr == null ? 'INR temporarily unavailable' : `≈ ${formatInr(row.price_inr)}`));
+    if (row.unit_price_eur && row.unit) {
+      const unitName = row.unit === 'item' ? 'item' : row.unit;
+      const converted = row.unit_price_inr ? ` · ≈ ${formatInr(row.unit_price_inr)}` : '';
+      prices.append(text('small', `${formatEuro(row.unit_price_eur)} / ${unitName}${converted}`));
+    }
+    return prices;
+  }
+
+  function renderCheapest(row) {
+    const host = $('cheapest-result');
+    host.replaceChildren();
+    host.hidden = !row;
+    if (!row) return;
+    const copy = document.createElement('div');
+    copy.append(
+      text('div', row.is_best_value ? 'BEST VALUE NEAR YOU' : 'LOWEST PACK PRICE', 'section-kicker'),
+      text('h3', row.supermarket),
+      text('p', row.product_name),
+    );
+    const meta = text('div', '', 'cheapest-meta');
+    meta.append(priceBlock(row));
+    const locationLabel = row.distance_km == null ? 'Online catalogue' : `${row.distance_km.toFixed(1)} km away`;
+    meta.append(text('span', `${locationLabel} · ${row.amount || 'Package size not listed'}`));
+    host.append(copy, meta, externalLink(`View at ${row.supermarket}`, row.product_url, 'button primary small'));
+  }
+
+  function renderShopResult(row) {
+    const card = text('article', '', `shop-price-card${row.available ? '' : ' unavailable'}`);
+    const top = text('div', '', 'shop-price-top');
+    const brand = text('span', row.supermarket.slice(0, 2), 'shop-price-monogram');
+    const heading = document.createElement('div');
+    heading.append(
+      text('h3', row.supermarket),
+      text('small', row.distance_km == null ? 'Dutch online catalogue' : `${row.distance_km.toFixed(1)} km away`),
+    );
+    top.append(brand, heading);
+    if (row.available) {
+      const label = row.dietary_status === 'compatible' ? 'Preference match' : (row.dietary_status === 'excluded' ? 'Does not match' : 'Scan to confirm');
+      top.append(text('span', label, `diet-badge ${row.dietary_status}`));
+      card.append(top, text('p', row.product_name, 'shop-product-name'));
+      if (row.amount) card.append(text('span', row.amount, 'shop-pack-size'));
+      card.append(priceBlock(row));
+      const flags = text('div', '', 'price-flags');
+      if (row.is_best_value) flags.append(text('span', 'Best unit value'));
+      if (row.is_lowest_pack) flags.append(text('span', 'Lowest pack price'));
+      if (flags.childNodes.length) card.append(flags);
+      card.append(text('p', row.dietary_note, 'diet-note'));
+      const actions = text('div', '', 'shop-card-actions');
+      actions.append(externalLink('View product', row.product_url, 'button secondary small'));
+      if (row.dietary_status !== 'compatible') {
+        const scanButton = text('button', 'Scan label', 'text-button');
+        scanButton.type = 'button';
+        scanButton.addEventListener('click', () => changePage('scan'));
+        actions.append(scanButton);
+      }
+      card.append(actions);
+    } else {
+      card.append(
+        top,
+        text('p', 'No comparable catalogue price found for this item.', 'shop-product-name'),
+        text('p', 'Open the supermarket search to check its current range.', 'diet-note'),
+        externalLink(`Search ${row.supermarket}`, row.search_url, 'button secondary small'),
+      );
+    }
+    return card;
+  }
+
+  function renderShopSearch(data) {
+    $('searched-query').textContent = `“${data.query_en}”`;
+    $('translated-query').textContent = `“${data.preference_query_nl}”`;
+    $('search-scope').textContent = `${data.preference_label} · ${data.location_label}`;
+    $('price-update').textContent = data.eur_to_inr
+      ? `€1 ≈ ${formatInr(data.eur_to_inr)}${data.exchange_rate_date ? ` · ${data.exchange_rate_date}` : ''}`
+      : 'INR conversion temporarily unavailable';
+    const list = $('shop-result-list');
+    list.replaceChildren();
+    (data.results || []).forEach((row) => list.append(renderShopResult(row)));
+    $('result-count').textContent = `${(data.results || []).length} checked`;
+    const best = (data.results || []).find((row) => row.is_best_value) || (data.results || []).find((row) => row.is_lowest_pack);
+    renderCheapest(best);
+    const stores = $('nearby-store-list');
+    stores.replaceChildren();
+    (data.nearby_stores || []).forEach((store) => {
+      const label = `${store.name}${store.distance_km == null ? '' : ` · ${store.distance_km.toFixed(1)} km`}`;
+      stores.append(externalLink(label, store.map_url, 'nearby-store-chip'));
+    });
+    const source = $('price-source-note');
+    source.replaceChildren(
+      document.createTextNode(`${data.notice} Prices: `),
+      externalLink('Checkjebon.nl open data', 'https://www.checkjebon.nl/'),
+      document.createTextNode(data.price_data_updated ? ` · updated ${data.price_data_updated}. ` : '. '),
+      externalLink('Distances: OpenStreetMap contributors', 'https://www.openstreetmap.org/copyright'),
+      document.createTextNode('.'),
+    );
+    $('shop-search-results').hidden = false;
+  }
+
+  async function searchProducts() {
+    if (state.shopSearchBusy) return;
+    const query = $('product-search-query').value.trim();
+    const manual = $('manual-location').value.trim();
+    if (query.length < 2) return;
+    $('shop-search-error').hidden = true;
+    $('shop-search-results').hidden = true;
+    if (!manual && !state.searchLocation) {
+      try { await requestCurrentLocation(); } catch { return; }
+    }
+    const form = new FormData();
+    form.append('query', query);
+    form.append('preference', preference());
+    if (manual) form.append('location', manual);
+    else if (state.searchLocation) {
+      form.append('lat', state.searchLocation.lat);
+      form.append('lon', state.searchLocation.lon);
+    }
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45000);
+    setShopSearchBusy(true);
+    try {
+      const data = await api('/api/shop-search/', { method: 'POST', body: form, signal: controller.signal });
+      renderShopSearch(data);
+      $('shop-search-results').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (error) {
+      $('shop-search-error').textContent = error.name === 'AbortError' ? 'Price comparison took too long. Please try again.' : error.message;
+      $('shop-search-error').hidden = false;
+    } finally {
+      clearTimeout(timer);
+      setShopSearchBusy(false);
     }
   }
 
@@ -416,6 +612,7 @@
     document.querySelector('.shop-card').href = current === 'non_vegetarian' ? 'https://www.ah.nl/' : 'https://www.ah.nl/producten/20128/vegetarisch-vegan-en-plantaardig';
     $('home-preference').textContent = `${friendly} picks, with the label always in reach.`;
     $('active-preference-pill').textContent = friendly;
+    $('search-preference').textContent = friendly;
     document.querySelectorAll('.shop-card-copy').forEach((element, index) => {
       const suffix = index === 0 ? ' & Terra line' : (index === 1 ? ' & Veggie Chef' : ' & Vemondo line');
       element.textContent = current === 'non_vegetarian' ? 'Browse the full food range' : `Look for ${range} ranges${suffix}`;
@@ -454,6 +651,23 @@
   $('remove-photo').addEventListener('click', clearPhoto);
   $('save-result').addEventListener('click', saveResult);
   $('share-result').addEventListener('click', shareResult);
+  $('product-search-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    await searchProducts();
+  });
+  $('use-location').addEventListener('click', async () => {
+    try {
+      await requestCurrentLocation();
+      toast('Current location is ready for nearby comparisons.');
+    } catch {}
+  });
+  $('manual-location-toggle').addEventListener('click', () => {
+    $('manual-location-wrap').hidden = false;
+    $('manual-location').focus();
+  });
+  $('manual-location').addEventListener('input', () => {
+    if ($('manual-location').value.trim()) $('location-label').textContent = 'Use my current location instead';
+  });
   document.querySelectorAll('[data-page]').forEach((button) => button.addEventListener('click', () => changePage(button.dataset.page)));
   document.querySelectorAll('[data-ingredients-lang]').forEach((button) => button.addEventListener('click', () => setIngredientLanguage(button.dataset.ingredientsLang)));
   document.querySelectorAll('[data-example]').forEach((button) => button.addEventListener('click', async () => {
@@ -470,6 +684,7 @@
   document.querySelectorAll('input[name="preference"]').forEach((input) => input.addEventListener('change', () => {
     try { localStorage.setItem('foodlens.preference', preference()); }
     catch { toast('Preference could not be saved in this browser.'); }
+    $('shop-search-results').hidden = true;
     updateHome();
   }));
   try {

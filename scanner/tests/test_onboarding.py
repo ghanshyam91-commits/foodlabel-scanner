@@ -25,7 +25,8 @@ class PreferenceTests(TestCase):
     def test_ui_has_onboarding_settings_and_native_capture(self):
         html = (Path(__file__).parents[1] / 'templates/scanner/index.html').read_text()
         for marker in ['onboarding-dialog', 'settings-page', 'remember-consent',
-                       'scan-launch', 'scan-dialog', 'capture="environment"', '.heic,.heif']:
+                       'scan-launch', 'scan-dialog', 'capture="environment"', '.heic,.heif',
+                       'product-search-form', 'manual-location', 'shop-result-list']:
             self.assertIn(marker, html)
         self.assertNotIn('id="consent"', html)
 
