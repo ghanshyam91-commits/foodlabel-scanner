@@ -71,6 +71,7 @@ select:focus-visible { outline: 3px solid rgba(99, 67, 216, .35); outline-offset
   border-bottom: 0;
   box-shadow: 0 5px 24px rgba(99, 67, 216, .045);
 }
+.top-settings { position: relative; z-index: 2; flex: 0 0 auto; }
 .brand { gap: 7px; color: var(--ink); font-size: 21px; font-weight: 800; letter-spacing: -.8px; }
 .brand-icon-wrap {
   width: 32px;
@@ -306,6 +307,8 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .shop-card-actions .button,
 .shop-price-card > .button { min-height: 37px; padding: 8px 12px; text-decoration: none; }
 .shop-card-actions .buy-button { border-color: #ddd1f0; background: var(--primary-soft); color: var(--primary); }
+.icon-action { width: 38px; min-width: 38px; padding: 8px; justify-content: center; }
+.icon-action .icon { width: 18px; height: 18px; }
 [data-buy-id]:disabled { cursor: default; opacity: 1; border-color: #b9dfc8; background: #e6f5ec; color: #217044; }
 .product-link-note { display: inline-flex; align-items: center; min-height: 31px; padding: 5px 2px; color: var(--muted); font-size: 9px; font-weight: 650; }
 .cheapest-result .product-link-note { color: #eee6ff; }
@@ -577,6 +580,19 @@ h1 { color: var(--ink); font-weight: 800; letter-spacing: -1.65px; }
 .verdict-card.vegetarian { background: #72782c; color: white; }
 .verdict-card.uncertain { background: #9a6415; color: white; }
 .verdict-card.non_vegetarian { background: #a62c28; color: white; }
+.minimal-product { display: block; margin: 24px 0 12px; padding: 0; text-align: center; }
+.minimal-product h2 { margin: 0; font-size: 17px; }
+.minimal-verdict { min-height: 300px; grid-template-columns: 1fr; place-items: center; align-content: center; gap: 16px; padding: 38px 24px; text-align: center; }
+.minimal-verdict.buy { background: #167449; }
+.minimal-verdict.dont-buy { background: #b33232; }
+.minimal-verdict.check { background: #a86c13; }
+.minimal-verdict .verdict-icon { width: 72px; height: 72px; }
+.minimal-verdict .verdict-icon .icon { width: 42px; height: 42px; }
+.minimal-verdict h3 { margin: 0; font-size: clamp(38px, 10vw, 58px); letter-spacing: -1.8px; }
+.scan-confidence { display: inline-flex; align-items: baseline; gap: 7px; margin-top: 12px; padding: 8px 13px; border-radius: 999px; background: rgba(255, 255, 255, .14); }
+.scan-confidence strong { font-size: 22px; }
+.scan-confidence span { font-size: 10px; font-weight: 650; text-transform: uppercase; letter-spacing: .8px; }
+.minimal-result-actions { width: min(280px, 100%); margin: 18px auto 0; }
 .verdict-top { margin-top: 2px; font-size: 9px; font-weight: 650; opacity: .82; }
 .verdict-card h3 { margin: 3px 0 5px; font-size: 21px; line-height: 1.2; letter-spacing: -.55px; }
 .verdict-card p { margin: 0; color: inherit; font-size: 12px; line-height: 1.45; }
@@ -854,6 +870,8 @@ dialog .consent { font-size: 10px; }
   .product-thumb { width: 50px; height: 50px; }
   .verdict-card { grid-template-columns: 44px 1fr; padding: 17px; }
   .verdict-icon { width: 44px; height: 44px; }
+  .minimal-verdict { min-height: 280px; grid-template-columns: 1fr; padding: 34px 20px; }
+  .minimal-verdict .verdict-icon { width: 68px; height: 68px; }
   .buy-list-panel,
   .saved-scans-panel { margin-inline: -3px; padding: 18px 14px; border-radius: 23px; }
   .saved-section-heading { align-items: flex-start; }
