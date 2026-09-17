@@ -548,8 +548,10 @@ def _dietary_status(product_name: str, preference: str) -> tuple[str, str]:
     return 'uncertain', 'The product name alone cannot confirm your preference. Scan the package before buying.'
 
 
-def _vegan_confidence(product_name: str) -> tuple[int, str]:
-    """Return a conservative, name-only vegan likelihood for display in search results."""
+def _vegan_confidence(product_name: str, preference: str = 'vegan',
+                      dietary_status: str | None = None,
+                      match_score: float | None = None) -> tuple[int, str]:
+    """Estimate preference confidence from the catalogue evidence available for a result."""
     name = normalize(product_name)
     explicit = ('vegan', 'veganistisch', 'plantaardig', 'plant based', 'plant-based')
     animal = ('kip', 'vlees', 'vis', 'zalm', 'tonijn', 'ham', 'spek', 'bacon', 'gelatine',
@@ -559,17 +561,36 @@ def _vegan_confidence(product_name: str) -> tuple[int, str]:
     plant_staples = ('tofu', 'tempeh', 'haver', 'soja', 'amandel', 'kokos', 'linzen',
                      'kikkererwten', 'bonen', 'rijst', 'tomaat', 'aardappel', 'banaan',
                      'appel', 'sinaasappel', 'groente', 'fruit')
-    if any(marker in name for marker in explicit):
-        return 92, 'The product name explicitly says vegan or plant-based.'
-    if any(marker in name for marker in plant_milks):
-        return 72, 'The name looks plant-based, but ingredients were not checked.'
-    if any(marker in name for marker in animal):
-        return 8, 'The product name contains an animal-derived food term.'
-    if any(marker in name for marker in plant_staples):
-        return 72, 'The name looks plant-based, but ingredients were not checked.'
-    if any(marker in name for marker in vegetarian):
-        return 45, 'Vegetarian wording alone does not confirm vegan ingredients.'
-    return 30, 'The product name does not provide enough evidence that it is vegan.'
+    has_explicit_plant_claim = any(marker in name for marker in explicit)
+    has_plant_milk = any(marker in name for marker in plant_milks)
+    has_animal_term = any(marker in name for marker in animal) and not has_plant_milk
+    has_plant_term = any(marker in name for marker in plant_staples)
+    has_vegetarian_term = any(marker in name for marker in vegetarian)
+    has_egg_free_term = any(marker in name for marker in ('zonder ei', 'eivrij', 'egg free', 'egg-free'))
+
+    if preference == 'non_vegetarian':
+        return 96, 'Your selected preference does not exclude animal or plant ingredients.'
+    if dietary_status == 'excluded' or has_animal_term:
+        return 8, 'The product name contains a term that conflicts with your selected preference.'
+    if preference == 'vegetarian_no_eggs' and has_egg_free_term and (has_explicit_plant_claim or has_vegetarian_term):
+        return 94, 'The product name supports both vegetarian and egg-free requirements.'
+    if has_explicit_plant_claim:
+        return 94, 'The product name explicitly says vegan or plant-based.'
+    if preference == 'vegetarian_with_eggs' and has_vegetarian_term:
+        return 92, 'The product name explicitly says vegetarian.'
+    if has_plant_milk or has_plant_term:
+        return 78, 'Plant-based terms in the product name support the selected preference.'
+    if has_vegetarian_term:
+        confidence = 70 if preference == 'vegetarian_with_eggs' else 48
+        return confidence, ('The vegetarian claim supports your preference.' if confidence >= 65
+                            else 'Vegetarian wording alone does not confirm an egg-free or vegan product.')
+
+    # A strong catalogue-name match raises confidence that this is the requested product,
+    # while the absence of dietary evidence keeps the result deliberately below green.
+    score = float(match_score) if match_score is not None else 65.0
+    match_evidence = 8 if score <= 5 else (5 if score <= 25 else (2 if score <= 50 else -5))
+    confidence = max(25, min(60, 40 + match_evidence))
+    return confidence, 'The product matches your search, but its name does not confirm all ingredients.'
 
 
 def _match_score(name: str, phrases: list[str], allow_fuzzy: bool = False) -> float | None:
@@ -736,7 +757,8 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
                 product_url, product_url_is_exact = _safe_product_url(
                     code, str(catalog_store.get('u') or RETAILERS[code]['home']),
                     str(product.get('l') or ''), search_url)
-                vegan_confidence, vegan_confidence_note = _vegan_confidence(product_name)
+                vegan_confidence, vegan_confidence_note = _vegan_confidence(
+                    product_name, preference, match['dietary_status'], match.get('match_score'))
                 row.update(product_name=product_name, amount=str(product.get('s') or '').strip()[:60],
                            price_eur=price, price_inr=round(price * rate) if rate else None,
                            unit_price_eur=unit_price,

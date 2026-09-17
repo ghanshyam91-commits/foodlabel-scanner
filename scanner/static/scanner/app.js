@@ -1045,6 +1045,11 @@
   });
   $('scan-back').addEventListener('click', () => changePage('home'));
   $('cancel-scan').addEventListener('click', () => { clearPhoto(); changePage('home'); });
+  $('close-result').addEventListener('click', () => {
+    $('result').hidden = true;
+    $('scan-page').classList.remove('has-result');
+    $('scan-page-title').textContent = 'Barcode Scanner';
+  });
   $('scan-another').addEventListener('click', () => { clearPhoto(); openScanDialog(); });
   $('preview').addEventListener('error', () => {
     if (!state.file) return;

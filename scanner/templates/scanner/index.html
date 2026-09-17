@@ -69,9 +69,8 @@
         <form id="product-search-form">
           <label class="sr-only" for="product-search-query">Search for a grocery item in English</label>
           <div class="grocery-search-bar">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg>
             <input id="product-search-query" name="query" type="search" maxlength="80" autocomplete="off" placeholder="Search groceries in English" required>
-            <button id="product-search-button" class="button primary" type="submit">Compare prices</button>
+            <button id="product-search-button" class="button primary grocery-search-submit" type="submit" aria-label="Search supermarkets" title="Search supermarkets"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m16.5 16.5 4 4"/></svg></button>
           </div>
         </form>
         <div id="shop-search-progress" class="shop-search-progress" role="status" hidden><span class="spinner"></span><strong>Comparing nearby supermarkets…</strong></div>
@@ -173,6 +172,7 @@
 
       <section id="result" class="result result-popup" aria-labelledby="result-title" tabindex="-1" hidden>
         <div class="result-popup-card">
+          <button id="close-result" class="result-popup-close" type="button" aria-label="Close result"><svg class="icon"><use href="#i-close"/></svg></button>
           <div class="result-heading minimal-product"><h2 id="product-name"></h2></div>
           <div class="verdict-card minimal-verdict" id="verdict-card"><div class="verdict-icon"><svg class="icon"><use id="result-verdict-icon" href="#i-check"/></svg></div><div><h3 id="result-title"></h3><div class="scan-confidence"><strong id="result-confidence">0%</strong><span>confidence</span></div><p id="result-check-summary" class="check-summary" hidden></p></div></div>
           <div class="result-actions minimal-result-actions"><button class="button primary full" id="scan-another" type="button"><svg class="icon"><use href="#i-camera"/></svg>Scan another item</button></div>
