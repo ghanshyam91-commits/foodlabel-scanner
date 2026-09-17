@@ -57,7 +57,10 @@ def usage(request):
     totals=rows.aggregate(scans=Sum('scans'),input=Sum('input_tokens'),output=Sum('output_tokens'))
     input_tokens=totals['input'] or 0;output_tokens=totals['output'] or 0
     usd=input_tokens/1_000_000*0.10+output_tokens/1_000_000*0.40
-    return JsonResponse({'month':date.today().strftime('%B %Y'),'scans':totals['scans'] or 0,'input_tokens':input_tokens,'output_tokens':output_tokens,'estimated_usd':round(usd,6),'model':settings.GEMINI_MODEL if settings.GEMINI_API_KEY else 'Tesseract local OCR · free'})
+    return JsonResponse({'month':date.today().strftime('%B %Y'),'scans':totals['scans'] or 0,
+        'input_tokens':input_tokens,'output_tokens':output_tokens,'estimated_usd':round(usd,6),
+        'estimated_inr':round(usd*settings.USD_TO_INR_RATE,4),'usd_to_inr_rate':settings.USD_TO_INR_RATE,
+        'model':settings.GEMINI_MODEL if settings.GEMINI_API_KEY else 'Tesseract local OCR · free'})
 
 @require_POST
 def shop_search(request):
