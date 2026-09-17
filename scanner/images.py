@@ -2,6 +2,9 @@
 import io
 import warnings
 from PIL import Image, ImageOps, UnidentifiedImageError
+from pillow_heif import register_heif_opener
+
+register_heif_opener()
 
 MAX_BYTES = 8 * 1024 * 1024
 MAX_PIXELS = 30_000_000
@@ -15,8 +18,8 @@ def prepare_image(data: bytes) -> bytes:
         with warnings.catch_warnings():
             warnings.simplefilter('error', Image.DecompressionBombWarning)
             with Image.open(io.BytesIO(data)) as check:
-                if check.format not in {'JPEG', 'PNG', 'WEBP'}:
-                    raise ImageInputError('Use a JPEG, PNG or WebP image. Export HEIC as JPEG first.')
+                if check.format not in {'JPEG', 'PNG', 'WEBP', 'HEIF'}:
+                    raise ImageInputError('Use a JPEG, PNG, WebP, HEIC or HEIF image.')
                 if check.width * check.height > MAX_PIXELS:
                     raise ImageInputError('Image is too large. Crop to the ingredient label first.')
                 check.verify()

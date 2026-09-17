@@ -6,3 +6,4 @@ whitenoise>=6.8,<7
 gunicorn>=23,<27
 python-dotenv>=1.0,<2
 redis>=5,<9
+pillow-heif>=1.1,<2

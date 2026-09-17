@@ -7,7 +7,7 @@ import unicodedata
 from .schema import LabelExtraction
 
 RULESET_VERSION = '2026-09-17.1'
-PREFERENCES = {'vegan', 'vegetarian_no_eggs', 'vegetarian_with_eggs'}
+PREFERENCES = {'vegan', 'vegetarian_no_eggs', 'vegetarian_with_eggs', 'non_vegetarian'}
 
 def normalize(text: str) -> str:
     value = unicodedata.normalize('NFKD', text.casefold())
@@ -153,7 +153,7 @@ def assess(label: LabelExtraction, preference: str = 'vegetarian_no_eggs') -> di
     else:
         verdict, title = 'vegan', 'Vegan-compatible ingredients'
 
-    excluded = animal or (preference == 'vegan' and (egg or dairy_or_honey)) or (preference == 'vegetarian_no_eggs' and egg)
+    excluded = (animal and preference != 'non_vegetarian') or (preference == 'vegan' and (egg or dairy_or_honey)) or (preference == 'vegetarian_no_eggs' and egg)
     match = 'no' if excluded else ('uncertain' if issues else 'yes')
     notable = [r for r in rows if r['evidence_verified'] and r['kind'] in {'animal','dairy','egg','honey'}]
     if notable:

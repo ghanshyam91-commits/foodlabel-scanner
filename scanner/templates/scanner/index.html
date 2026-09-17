@@ -3,12 +3,13 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="theme-color" content="#f5f7f2"><meta name="description" content="Read Dutch food labels in English. Understand ingredients and check your dietary preferences.">
+  <meta name="theme-color" content="#f8f6ff"><meta name="description" content="Read Dutch food labels in English. Understand ingredients and check your dietary preferences.">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>FoodLens — Know what’s inside.</title>
   <link rel="icon" href="{% static 'scanner/icon.svg' %}" type="image/svg+xml">
   <link rel="manifest" href="{% static 'scanner/manifest.webmanifest' %}">
   <link rel="stylesheet" href="{% static 'scanner/app.css' %}">
+  <link rel="stylesheet" href="{% static 'scanner/lavender.css' %}">
   <script defer src="{% static 'scanner/app.js' %}"></script>
 </head>
 <body>
@@ -19,7 +20,27 @@
     <div class="header-right"><span class="language">NL <span aria-hidden="true">→</span> EN</span><button class="icon-button" id="privacy-open" aria-label="Privacy and how it works">ⓘ</button></div>
   </header>
   <main id="main">
-    <section id="scan-page" class="page">
+    <section id="home-page" class="page">
+      <div class="hero"><div class="eyebrow">YOUR NETHERLANDS GROCERY COMPANION</div><h1>A little clarity.<br><span>In every basket.</span></h1><p id="home-preference">Food that fits you.</p></div>
+      <section class="shop-section"><div class="examples-heading"><h2>Explore your next shop</h2><button class="text-button" data-page="settings">Your preferences ↗</button></div>
+      <p class="small-note">Browse supermarket ranges, then scan the package to check ingredients. Stock and recipes can change.</p>
+      <div class="shop-grid">
+      <a class="shop-card" href="https://www.ah.nl/" target="_blank" rel="noopener noreferrer"><span class="shop-monogram">ah</span><h3>Albert Heijn</h3><p>Explore the range</p><span>Visit supermarket ↗</span></a>
+      <a class="shop-card" href="https://www.jumbo.com/" target="_blank" rel="noopener noreferrer"><span class="shop-monogram">J</span><h3>Jumbo</h3><p>Find your everyday favourites</p><span>Visit supermarket ↗</span></a>
+      <a class="shop-card" href="https://www.lidl.nl/" target="_blank" rel="noopener noreferrer"><span class="shop-monogram">L</span><h3>Lidl</h3><p>Browse food and weekly ranges</p><span>Visit supermarket ↗</span></a>
+      </div><div class="shopping-tip"><h3>Words to look for</h3><p id="shopping-words"></p><p class="small-note">Vegetarisch does not mean egg-free. Plantaardig wording alone is not certification. Always check the label.</p></div>
+      </section>
+    </section>
+    <section id="settings-page" class="page" hidden><div class="hero"><div class="eyebrow">MAKE IT YOURS</div><h1>Your <span>preferences.</span></h1><p>Saved in this browser, not synced between devices.</p></div><section class="preference-card" aria-labelledby="preference-title"><div class="section-kicker">02 / YOUR PREFERENCE</div><h2 id="preference-title">Your food. Your choice.</h2><p>Applied to your next scan. Every result shows what it was checked for.</p>
+            <fieldset class="preference-options"><legend class="sr-only">Dietary preference</legend>
+              <label class="preference-option"><input type="radio" name="preference" value="vegetarian_no_eggs" checked><span><strong>Vegetarian, without eggs</strong><small>Dairy and honey are okay</small></span></label>
+              <label class="preference-option"><input type="radio" name="preference" value="vegetarian_with_eggs"><span><strong>Vegetarian, with eggs</strong><small>Dairy, eggs and honey are okay</small></span></label>
+              <label class="preference-option"><input type="radio" name="preference" value="vegan"><span><strong>Vegan</strong><small>No animal-derived ingredients</small></span></label>
+            <label class="preference-option"><input type="radio" name="preference" value="non_vegetarian"><span><strong>Non-vegetarian</strong><small>All food types; still show ingredients</small></span></label></fieldset>
+          </section>
+    <section class="about-card settings-consent"><h2>Photo processing permission</h2><label class="consent"><input id="remember-consent" type="checkbox"><span>Allow photos I choose to scan to be sent to Google Gemini for reading and translation. The app removes metadata and does not save photos. Google's retention and data use depend on the provider plan. Avoid faces and personal details.</span></label><p class="small-note">Asked once during onboarding. Turn this off anytime to stop future AI scans. Turning it off cannot recall photos already sent.</p><button class="text-button" data-page="about">Privacy &amp; how it works ↗</button></section>
+    </section>
+    <section id="scan-page" class="page" hidden>
       <div class="hero"><div class="eyebrow"><span class="tiny-dot"></span> YOUR GROCERY TRANSLATOR</div>
         <h1>Know what’s inside.<br><span>Dutch labels. In English.</span></h1>
         <p>Photograph a Dutch ingredients label.<br class="mobile-break"> Get the English translation and a clearer dietary check.</p>
@@ -37,24 +58,15 @@
             <button class="text-button" id="remove-photo" hidden>Remove photo</button>
           </div>
           <div class="capture-actions"><button id="camera-button" class="button primary" type="button"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 7h4l2-3h6l2 3h4v13H3z"/><circle cx="12" cy="13" r="4"/></svg> Take a photo</button><button class="button secondary" id="upload-button" type="button">↑ Upload photo</button></div>
-          <input id="camera-input" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" hidden>
-          <input id="upload-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>
-          <p class="file-hint">JPEG, PNG or WebP · up to 8 MB</p>
-          <div id="scan-options" hidden><label class="consent"><input id="consent" type="checkbox"><span>Send this label photo to Google’s Gemini API for reading and translation. Avoid including faces or personal details.</span></label>
+          <input id="camera-input" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" capture="environment" hidden>
+          <input id="upload-input" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif" hidden>
+          <p class="file-hint">JPEG, PNG, WebP or iPhone HEIC · up to 8 MB</p>
+          <div id="scan-options" hidden><p class="small-note">Your saved AI permission applies to this scan. Change it in Settings.</p>
             <button class="button primary full" id="analyze-button" type="button">Read my label <span aria-hidden="true">→</span></button></div>
           <div id="progress" class="progress" role="status" hidden><span class="spinner"></span><div><strong>Reading your label…</strong><span>Translating the text, then checking the ingredients.</span></div></div>
           <p id="error" class="error" role="alert" hidden></p>
         </section>
-        <aside class="side-stack">
-          <section class="preference-card" aria-labelledby="preference-title"><div class="section-kicker">02 / YOUR PREFERENCE</div><h2 id="preference-title">Your food. Your choice.</h2><p>Applied to your next scan. Every result shows what it was checked for.</p>
-            <fieldset class="preference-options"><legend class="sr-only">Dietary preference</legend>
-              <label class="preference-option"><input type="radio" name="preference" value="vegetarian_no_eggs" checked><span><strong>Vegetarian, without eggs</strong><small>Dairy and honey are okay</small></span></label>
-              <label class="preference-option"><input type="radio" name="preference" value="vegetarian_with_eggs"><span><strong>Vegetarian, with eggs</strong><small>Dairy, eggs and honey are okay</small></span></label>
-              <label class="preference-option"><input type="radio" name="preference" value="vegan"><span><strong>Vegan</strong><small>No animal-derived ingredients</small></span></label>
-            </fieldset>
-          </section>
-          <section class="honesty-card"><span class="honesty-icon" aria-hidden="true">?</span><div><h3>Not sure? We’ll say so.</h3><p>Missing text or an unknown ingredient gets an “Uncertain” result, not a confident guess.</p></div></section>
-        </aside>
+
       </div>
       <section id="result" class="result" aria-labelledby="result-title" tabindex="-1" hidden>
         <div class="result-heading"><div><div class="section-kicker" id="result-source">YOUR LABEL, EXPLAINED</div><h2 id="product-name"></h2></div><button class="button secondary small" id="save-result">Save scan</button></div>
@@ -77,7 +89,9 @@
     <section id="about-page" class="page" hidden><div class="hero"><div class="eyebrow">A LITTLE CLARITY</div><h1>Read the label.<br><span>Keep the final say.</span></h1></div><div class="about-card"><h2>How FoodLens works</h2><p>One photo goes to Gemini for text extraction and translation. A separate, conservative ingredient-rule engine checks the original Dutch or English ingredient names. The AI does not choose the dietary verdict.</p><h3>Three dietary categories. One important fourth answer.</h3><p>Vegan-compatible ingredients, vegetarian but not vegan, non-vegetarian ingredient found, or uncertain. An unreadable list, an unfamiliar ingredient or an unresolved source blocks a positive result.</p><h3>Privacy by design</h3><p>The app removes image metadata before forwarding the photo. Photos and results are not saved in the app’s database or application logs. The AI provider processes your photo under its own terms; its retention and use depend on the account and service configuration.</p><p>Saving a scan stores the text result in this browser, not your photo. Anyone using this browser profile may see saved scans. Clear them from the Saved tab. Your dietary setting is stored on this device.</p><h3>Not a certification or allergy checker</h3><p>FoodLens cannot verify processing aids, manufacturing practices, undeclared ingredients or product certifications. AI can misread text. Always compare with the original package. “No allergen statement read” never means “allergen-free.”</p><h3>Built for the first useful version</h3><p>Dutch and English packaging only. One photo per scan. Barcode databases, full on-image translation overlays and recipe recognition are not included in this version.</p><button class="button secondary" id="logout-button" hidden>Lock private-beta access</button></div></section>
   </main>
   <footer class="footer"><span>Less guessing. More understanding.</span><span>Label guidance, not a safety guarantee.</span></footer>
-  <nav class="bottom-nav" aria-label="Main navigation"><button data-page="scan" aria-current="page"><span aria-hidden="true">⌗</span>Scan</button><button data-page="history"><span aria-hidden="true">▤</span>Saved</button><button data-page="about"><span aria-hidden="true">ⓘ</span>How it works</button></nav>
+  <nav class="bottom-nav" aria-label="Main navigation"><button data-page="home" aria-current="page"><span aria-hidden="true">⌂</span>Home</button><button data-page="history"><span aria-hidden="true">▤</span>Saved</button><button id="scan-launch" class="scan-launch" aria-label="Scan a food label"><span aria-hidden="true">⌗</span>Scan</button><button data-page="settings"><span aria-hidden="true">⚙</span>Settings</button></nav>
+  <dialog id="scan-dialog" aria-labelledby="scan-dialog-title"><h2 id="scan-dialog-title">Scan a label</h2><p>Choose a clear photo of the full ingredients list.</p><button id="sheet-camera" class="button primary full">Take a photo</button><button id="sheet-gallery" class="button secondary full">Choose from gallery</button><button id="sheet-close" class="text-button full">Cancel</button></dialog>
+  <dialog id="onboarding-dialog" aria-labelledby="onboarding-title"><form id="onboarding-form"><div class="section-kicker">WELCOME TO FOODLENS</div><h2 id="onboarding-title">Your food. Your way.</h2><p>A quick setup. Change it anytime in Settings.</p><label for="onboarding-preference">How do you eat?</label><select id="onboarding-preference" required><option value="" disabled selected>Choose your preference</option value="vegetarian_no_eggs">Vegetarian — without eggs</option><option value="vegetarian_with_eggs">Vegetarian — with eggs</option><option value="non_vegetarian">Non-vegetarian</option><option value="vegan">Vegan</option></select><label class="consent"><input id="onboarding-consent" type="checkbox"><span>Allow photos I choose to scan to be sent to Google Gemini for reading and translation. Photos are not saved by this app; metadata is removed. Google's retention and data use depend on the provider plan. Avoid personal details. This permission is saved on this device and can be withdrawn in Settings.</span></label><p class="small-note">Optional: leave unchecked to browse without AI scanning. Results are guidance, not certification or an allergy-safety guarantee.</p><button class="button primary full" type="submit">Let's get started →</button></form></dialog>
   <dialog id="access-dialog"><form id="access-form"><div class="section-kicker">PRIVATE BETA</div><h2>Welcome to FoodLens.</h2><p>Enter the access code shared by the app owner.</p><label for="access-code">Access code</label><input id="access-code" name="code" type="password" autocomplete="current-password" maxlength="256" required><p id="access-error" class="error" role="alert" hidden></p><button class="button primary full" type="submit">Unlock scanning</button><button class="text-button full" id="access-cancel" type="button">Explore the examples instead</button></form></dialog>
   <div id="toast" class="toast" role="status" hidden></div>
 </body>

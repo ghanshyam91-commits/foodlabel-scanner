@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = (id) => document.getElementById(id);
-  const names = {vegan:'Vegan', vegetarian_no_eggs:'Vegetarian without eggs', vegetarian_with_eggs:'Vegetarian with eggs'};
+  const names = {non_vegetarian:'Non-vegetarian', vegan:'Vegan', vegetarian_no_eggs:'Vegetarian without eggs', vegetarian_with_eggs:'Vegetarian with eggs'};
   const state = {file:null, url:null, result:null, config:null, busy:false};
   const storageKey = 'foodlens.saved.v1';
   let toastTimer;
@@ -23,21 +23,22 @@
     document.querySelectorAll('[data-example],input[name="preference"]').forEach(e=>e.disabled=busy);
   }
   function changePage(page) {
-    ['scan','history','about'].forEach(p=>$(p+'-page').hidden=p!==page);
+    ['home','scan','history','about','settings'].forEach(p=>$(p+'-page').hidden=p!==page);
     document.querySelectorAll('[data-page]').forEach(b=>{if(b.dataset.page===page)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
     if(page==='history')renderHistory();
     window.scrollTo({top:0,behavior:'smooth'});
   }
   function clearPhoto() {
+    $('capture-hint').replaceChildren(text('strong','The ingredients side, please.'),text('p','Keep the whole list sharp and in frame.'));
     if(state.url)URL.revokeObjectURL(state.url);
     state.file=null;state.url=null;$('preview').removeAttribute('src');$('preview').hidden=true;
     $('camera-illustration').hidden=false;$('capture-hint').hidden=false;$('scan-options').hidden=true;
-    $('remove-photo').hidden=true;$('camera-input').value='';$('upload-input').value='';$('consent').checked=false;
+    $('remove-photo').hidden=true;$('camera-input').value='';$('upload-input').value='';
   }
   function selectPhoto(file) {
     if(!file)return;
     $('error').hidden=true;
-    if(!['image/jpeg','image/png','image/webp'].includes(file.type)){showError('Use JPEG, PNG or WebP. Export HEIC photos as JPEG first.');return;}
+    if(!['image/jpeg','image/png','image/webp','image/heic','image/heif'].includes(file.type)&&!(/\.(heic|heif)$/i.test(file.name))){showError('Use JPEG, PNG, WebP, HEIC or HEIF.');return;}
     if(file.size>8*1024*1024){showError('Choose a photo smaller than 8 MB.');return;}
     clearPhoto();state.file=file;state.url=URL.createObjectURL(file);
     $('preview').src=state.url;$('preview').hidden=false;$('camera-illustration').hidden=true;
@@ -76,7 +77,7 @@
     if(state.busy)return;
     $('error').hidden=true;
     if(!state.file)return showError('Take or upload a photo first.');
-    if(!$('consent').checked)return showError('Please confirm sending this label photo to the AI provider.');
+    if(!hasConsent()){changePage('settings');toast('Enable photo processing permission to use AI scanning.');return;}
     if(!state.config?.ai_configured)return showError('Scanning is not configured. The app owner needs to add GEMINI_API_KEY. The examples are available below.');
     if(state.config.access_required&&!state.config.unlocked){$('access-dialog').showModal();return;}
     const form=new FormData();form.append('photo',state.file);form.append('preference',preference());form.append('consent','yes');
@@ -120,11 +121,11 @@
   $('privacy-open').addEventListener('click',()=>changePage('about'));$('save-result').addEventListener('click',saveResult);
   document.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click',()=>changePage(b.dataset.page)));
   document.querySelectorAll('[data-example]').forEach(b=>b.addEventListener('click',async()=>{
-    if(state.busy)return;$('error').hidden=true;
+    if(state.busy)return;changePage('scan');$('error').hidden=true;
     try{renderResult(await api('/api/examples/'+b.dataset.example+'/?preference='+encodeURIComponent(preference())));}
     catch(e){showError(e.message);}
   }));
-  document.querySelectorAll('input[name="preference"]').forEach(e=>e.addEventListener('change',()=>{try{localStorage.setItem('foodlens.preference',preference());}catch{}}));
+  document.querySelectorAll('input[name="preference"]').forEach(e=>e.addEventListener('change',()=>{try{localStorage.setItem('foodlens.preference',preference());}catch{toast('Preference could not be saved in this browser.');}updateHome();}));
   try{const p=localStorage.getItem('foodlens.preference');if(Object.hasOwn(names,p))document.querySelector('input[value="'+p+'"]').checked=true;}catch{}
   $('clear-history').addEventListener('click',()=>{if(confirm('Delete every saved scan on this device?')){try{localStorage.removeItem(storageKey);renderHistory();toast('Saved text results deleted.');}catch{toast('Unable to clear browser storage.');}}});
   $('access-form').addEventListener('submit',async(e)=>{
@@ -134,5 +135,46 @@
   });
   $('access-cancel').addEventListener('click',()=>$('access-dialog').close());
   $('logout-button').addEventListener('click',async()=>{try{await api('/api/logout/',{method:'POST'});await configure();toast('Private-beta access locked.');}catch(e){toast(e.message);}});
+  const consentKey='foodlens.consent.gemini.v1';
+  let consentGranted=false;
+  try{consentGranted=localStorage.getItem(consentKey)==='yes';}catch{}
+  const hasConsent=()=>consentGranted;
+  function saveConsent(value){
+    consentGranted=value;
+    $('remember-consent').checked=value;
+    try{localStorage.setItem(consentKey,value?'yes':'no');}catch{toast('Permission applies only to this visit because browser storage is unavailable.');}
+  }
+  function updateHome(){
+    const p=preference();
+    document.querySelector('.shop-card').href=p==='non_vegetarian'?'https://www.ah.nl/':'https://www.ah.nl/producten/20128/vegetarisch-vegan-en-plantaardig';
+    $('home-preference').textContent=names[p]+' picks, with the label always in reach.';
+    $('shopping-words').textContent=p==='vegan'?'Vegan / veganistisch · plantaardig (plant-based). Try tofu, lentils and oat drinks.':p==='non_vegetarian'?'Explore any range. Scan labels to understand ingredients and allergen statements.':'Vegetarisch (vegetarian) · zonder ei (without egg). Try chickpeas, tofu and lentils.';
+    document.querySelectorAll('.shop-card p').forEach(el=>el.textContent=p==='vegan'?'Look for vegan ranges':p==='non_vegetarian'?'Browse the full food range':'Look for vegetarian ranges');
+  }
+  $('remember-consent').checked=consentGranted;
+  $('remember-consent').addEventListener('change',e=>{saveConsent(e.target.checked);toast(e.target.checked?'Photo permission saved.':'Future AI scans disabled.');});
+  $('onboarding-dialog').addEventListener('cancel',e=>e.preventDefault());
+  $('onboarding-form').addEventListener('submit',e=>{
+    e.preventDefault();const p=$('onboarding-preference').value;
+    if(!Object.hasOwn(names,p))return;
+    document.querySelector('input[name="preference"][value="'+p+'"]').checked=true;
+    saveConsent($('onboarding-consent').checked);
+    try{localStorage.setItem('foodlens.preference',p);localStorage.setItem('foodlens.onboarding.v1','done');}catch{toast('Settings could not be saved. You may see setup again next visit.');}
+    updateHome();$('onboarding-dialog').close();changePage('home');
+  });
+  $('scan-launch').addEventListener('click',()=>{if(!state.busy)$('scan-dialog').showModal();});
+  $('sheet-close').addEventListener('click',()=>$('scan-dialog').close());
+  for(const [button,input] of [['sheet-camera','camera-input'],['sheet-gallery','upload-input']]){
+    $(button).addEventListener('click',()=>{$('scan-dialog').close();changePage('scan');$(input).click();});
+  }
+  $('preview').addEventListener('error',()=>{
+    if(!state.file)return;
+    $('preview').hidden=true;$('capture-hint').hidden=false;
+    $('capture-hint').replaceChildren(text('strong','Photo selected'),text('p','Preview unavailable on this browser. The server will convert HEIC when you scan.'));
+  });
+  updateHome();changePage('home');
+  let onboarded=false;
+  try{onboarded=localStorage.getItem('foodlens.onboarding.v1')==='done'&&Object.hasOwn(names,localStorage.getItem('foodlens.preference'));}catch{}
+  if(!onboarded)$('onboarding-dialog').showModal();
   configure();
 })();
