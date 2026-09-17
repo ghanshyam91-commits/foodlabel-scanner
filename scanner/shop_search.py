@@ -632,7 +632,7 @@ def find_product(products: list[dict], phrases: list[str], preference: str,
 
 def _safe_product_url(code: str, base: str, path: str, search_url: str) -> tuple[str, bool]:
     if code in NO_USABLE_PRODUCT_LINK_RETAILERS:
-        return '', False
+        return search_url, False
     if not path:
         return search_url, False
     candidate = urljoin(base, path)

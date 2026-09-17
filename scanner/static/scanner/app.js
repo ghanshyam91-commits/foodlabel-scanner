@@ -182,15 +182,15 @@
   }
 
   function productDestination(row, className = '') {
-    const url = ['ah', 'lidl'].includes(row.code) ? '' : (row.product_url ?? row.productUrl);
+    const url = row.product_url || row.productUrl || row.search_url || row.searchUrl || '';
     const exact = row.product_url_is_exact ?? row.productUrlIsExact;
     const supermarket = row.supermarket || 'store';
     if (!url) {
-      const note = text('span', 'Exact page unavailable', 'product-link-note');
-      note.title = `${supermarket} does not expose a usable public product page for this result.`;
+      const note = text('span', 'Search', 'product-link-note');
+      note.title = `${supermarket} does not expose a usable public catalogue link for this result.`;
       return note;
     }
-    return externalLink(exact ? 'View exact product' : `Search ${supermarket}`, url, className);
+    return externalLink(exact ? 'View' : 'Search', url, className);
   }
 
   function retailerLogo(code, name, className = 'retailer-logo') {
@@ -361,6 +361,7 @@
         priceInr: row.price_inr,
         productUrl: row.product_url,
         productUrlIsExact: Boolean(row.product_url_is_exact),
+        searchUrl: row.search_url,
         distanceKm: row.distance_km,
         mapUrl: row.map_url,
         quantity: 1,
