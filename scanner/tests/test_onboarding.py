@@ -47,6 +47,18 @@ class PreferenceTests(TestCase):
             self.assertNotIn(emoji, html)
         self.assertIn('await scan();', script)
 
+    def test_home_ui_keeps_only_core_search_content(self):
+        html = (Path(__file__).parents[1] / 'templates/scanner/index.html').read_text()
+        self.assertIn('Find the best price', html)
+        self.assertIn('Search groceries in English', html)
+        self.assertIn('Compare prices', html)
+        self.assertNotIn('YOUR NETHERLANDS GROCERY COMPANION', html)
+        self.assertNotIn('A little clarity.', html)
+        self.assertNotIn('Search in English. Shop in Dutch.', html)
+        self.assertNotIn('Trending verified picks', html)
+        self.assertNotIn('Aisle tip:', html)
+        self.assertNotIn('id="use-location"', html)
+
 
 class HeicTests(TestCase):
     def test_heic_to_metadata_free_jpeg(self):

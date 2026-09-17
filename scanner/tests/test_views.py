@@ -11,7 +11,7 @@ from scanner.tests.test_images import image_bytes
 class ViewTests(SimpleTestCase):
     def setUp(self):cache.clear()
     def test_home(self):
-        response=self.client.get('/');self.assertEqual(response.status_code,200);self.assertContains(response,'Explore Dutch Supermarkets')
+        response=self.client.get('/');self.assertEqual(response.status_code,200);self.assertContains(response,'Find the best price')
     def test_config_does_not_leak_keys(self):
         self.assertNotIn('test-key',self.client.get('/api/config/').content.decode())
     def test_demo_marked(self):
