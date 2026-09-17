@@ -33,6 +33,8 @@ NOMINATIM_REVERSE_URL = 'https://nominatim.openstreetmap.org/reverse'
 ECB_RATES_URL = 'https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml'
 USER_AGENT = 'FoodLens/1.0 (+https://github.com/ghanshyam91-commits/foodlabel-scanner)'
 MAX_CATALOG_BYTES = 20_000_000
+PRIMARY_SEARCH_RADIUS_KM = 3
+EXPANDED_SEARCH_RADIUS_KM = 5
 MAX_LOGO_BYTES = 200_000
 
 PREFERENCE_LABELS = {
@@ -448,13 +450,17 @@ def reverse_geocode_location(lat: float, lon: float) -> str | None:
         return None
 
 
-def nearby_supermarkets(lat: float, lon: float, limit: int = 10) -> list[dict]:
+def nearby_supermarkets(lat: float, lon: float, limit: int = 10,
+                        radius_km: int = PRIMARY_SEARCH_RADIUS_KM) -> list[dict]:
     lat, lon = float(lat), float(lon)
     if not (50.5 <= lat <= 53.7 and 3.0 <= lon <= 7.7):
         raise ValueError('Current location must be within the Netherlands.')
+    if radius_km not in {PRIMARY_SEARCH_RADIUS_KM, EXPANDED_SEARCH_RADIUS_KM}:
+        raise ValueError('Search radius must be 3 km or 5 km.')
+    radius_metres = radius_km * 1000
     query = (
         '[out:json][timeout:12];('
-        f'nwr(around:25000,{lat:.6f},{lon:.6f})["shop"="supermarket"];'
+        f'nwr(around:{radius_metres},{lat:.6f},{lon:.6f})["shop"="supermarket"];'
         ');out center tags 120;'
     )
     try:
@@ -473,10 +479,13 @@ def nearby_supermarkets(lat: float, lon: float, limit: int = 10) -> list[dict]:
         if not name:
             continue
         code = retailer_code(str(tags.get('brand') or name)) or retailer_code(name)
+        distance_km = _haversine(lat, lon, store_lat, store_lon)
+        if distance_km > radius_km:
+            continue
         found.append({'name': RETAILERS[code]['name'] if code else name[:80], 'code': code,
-                      'distance_km': round(_haversine(lat, lon, store_lat, store_lon), 1),
+                      'distance_km': round(distance_km, 1),
                       'map_url': f'https://www.openstreetmap.org/?mlat={store_lat:.6f}&mlon={store_lon:.6f}#map=17/{store_lat:.6f}/{store_lon:.6f}'})
-    found.sort(key=lambda item: item['distance_km'])
+    found.sort(key=lambda item: (item['distance_km'], normalize(item['name'])))
     unique, seen = [], set()
     for store in found:
         key = store['code'] or normalize(store['name'])
@@ -688,52 +697,67 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
     else:
         location_name = reverse_geocode_location(lat, lon) or 'Current location'
         location_mode = location_name
-    nearby = nearby_supermarkets(round(float(lat), 3), round(float(lon), 3)) if lat is not None and lon is not None else []
+    has_location = lat is not None and lon is not None
+    rounded_lat = round(float(lat), 3) if has_location else None
+    rounded_lon = round(float(lon), 3) if has_location else None
     translation = translate_query(query, preference, api_key, model)
     catalogue, updated = load_catalog()
-    if not nearby:
-        nearby = _fallback_stores(catalogue)
-        location_mode = 'Netherlands-wide comparison' if not location_text else f'{location_mode} · national catalogue'
     by_code = {str(store.get('n')): store for store in catalogue}
-    stores_to_compare = nearby
-    if not any(store.get('code') in by_code and by_code[store['code']].get('d') for store in nearby):
-        stores_to_compare = _fallback_stores(catalogue)
-        if 'national' not in location_mode.casefold():
-            location_mode += ' · national catalogue'
     phrases = []
     for phrase in (translation.preference_query_nl, translation.query_nl, *translation.alternatives_nl, query):
         if phrase and normalize(phrase) not in {normalize(value) for value in phrases}:
             phrases.append(phrase)
     rate, rate_date = eur_inr_rate()
-    results = []
-    for nearby_store in stores_to_compare[:10]:
-        code = nearby_store.get('code')
-        if not code or code not in RETAILERS:
-            continue
-        search_url = _search_url(code, translation.preference_query_nl)
-        catalog_store = by_code.get(code) or {}
-        match = find_product(catalog_store.get('d') or [], phrases, preference, _size_details(query))
-        row = {'code': code, 'supermarket': RETAILERS[code]['name'],
-               'distance_km': nearby_store.get('distance_km'), 'map_url': nearby_store.get('map_url'),
-               'logo_url': f'/api/shop-logo/{code}/',
-               'search_url': search_url, 'available': bool(match), 'is_lowest_pack': False,
-               'is_best_value': False}
-        if match:
-            product = match['raw']; price = round(float(product['p']), 2)
-            amount, unit = _size_details(str(product.get('s') or ''))
-            unit_price = round(price / amount, 2) if amount else None
-            product_name = str(product.get('n') or 'Product').replace('\ufffd', '').strip()[:180]
-            product_url, product_url_is_exact = _safe_product_url(
-                code, str(catalog_store.get('u') or RETAILERS[code]['home']),
-                str(product.get('l') or ''), search_url)
-            vegan_confidence, vegan_confidence_note = _vegan_confidence(product_name)
-            row.update(product_name=product_name, amount=str(product.get('s') or '').strip()[:60],
-                       price_eur=price, price_inr=round(price * rate) if rate else None,
-                       unit_price_eur=unit_price, unit_price_inr=round(unit_price * rate) if rate and unit_price else None,
-                       unit=unit, dietary_status=match['dietary_status'], dietary_note=match['dietary_note'],
-                       vegan_confidence=vegan_confidence, vegan_confidence_note=vegan_confidence_note,
-                       product_url=product_url, product_url_is_exact=product_url_is_exact)
-        results.append(row)
+    requested_size = _size_details(query)
+
+    def compare_stores(stores: list[dict]) -> list[dict]:
+        compared = []
+        for nearby_store in stores[:10]:
+            code = nearby_store.get('code')
+            if not code or code not in RETAILERS:
+                continue
+            search_url = _search_url(code, translation.preference_query_nl)
+            catalog_store = by_code.get(code) or {}
+            match = find_product(catalog_store.get('d') or [], phrases, preference, requested_size)
+            row = {'code': code, 'supermarket': RETAILERS[code]['name'],
+                   'distance_km': nearby_store.get('distance_km'), 'map_url': nearby_store.get('map_url'),
+                   'logo_url': f'/api/shop-logo/{code}/',
+                   'search_url': search_url, 'available': bool(match), 'is_lowest_pack': False,
+                   'is_best_value': False}
+            if match:
+                product = match['raw']; price = round(float(product['p']), 2)
+                amount, unit = _size_details(str(product.get('s') or ''))
+                unit_price = round(price / amount, 2) if amount else None
+                product_name = str(product.get('n') or 'Product').replace('\ufffd', '').strip()[:180]
+                product_url, product_url_is_exact = _safe_product_url(
+                    code, str(catalog_store.get('u') or RETAILERS[code]['home']),
+                    str(product.get('l') or ''), search_url)
+                vegan_confidence, vegan_confidence_note = _vegan_confidence(product_name)
+                row.update(product_name=product_name, amount=str(product.get('s') or '').strip()[:60],
+                           price_eur=price, price_inr=round(price * rate) if rate else None,
+                           unit_price_eur=unit_price,
+                           unit_price_inr=round(unit_price * rate) if rate and unit_price else None,
+                           unit=unit, dietary_status=match['dietary_status'], dietary_note=match['dietary_note'],
+                           vegan_confidence=vegan_confidence, vegan_confidence_note=vegan_confidence_note,
+                           product_url=product_url, product_url_is_exact=product_url_is_exact)
+            compared.append(row)
+        return compared
+
+    search_radius_km = None
+    expanded_search = False
+    if has_location:
+        search_radius_km = PRIMARY_SEARCH_RADIUS_KM
+        nearby = nearby_supermarkets(rounded_lat, rounded_lon, radius_km=search_radius_km)
+        results = compare_stores(nearby)
+        if not any(row['available'] for row in results):
+            search_radius_km = EXPANDED_SEARCH_RADIUS_KM
+            expanded_search = True
+            nearby = nearby_supermarkets(rounded_lat, rounded_lon, radius_km=search_radius_km)
+            results = compare_stores(nearby)
+    else:
+        nearby = _fallback_stores(catalogue)
+        location_mode = 'Netherlands-wide comparison'
+        results = compare_stores(nearby)
     stores_without_matches = sum(not row['available'] for row in results)
     results = [row for row in results if row['available']]
     available = [row for row in results if row['available'] and row.get('dietary_status') != 'excluded']
@@ -748,8 +772,9 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
                 comparable = [row for row in preferred if row.get('unit') == dimension and row.get('unit_price_eur')]
         if comparable:
             min(comparable, key=lambda row: row['unit_price_eur'])['is_best_value'] = True
-    results.sort(key=lambda row: (not row.get('is_best_value'), not row.get('is_lowest_pack'),
-                                  not row.get('available'), row.get('price_eur', 10**9)))
+    results.sort(key=lambda row: (row.get('distance_km') is None,
+                                  row.get('distance_km') if row.get('distance_km') is not None else math.inf,
+                                  normalize(row.get('supermarket') or '')))
     updated_label = updated
     if updated:
         try:
@@ -765,9 +790,13 @@ def build_shop_search(query: str, preference: str, api_key: str, model: str, *,
         'translation_source': translation.source, 'preference': preference,
         'preference_label': PREFERENCE_LABELS[preference], 'location_label': location_mode,
         'location_name': location_name or location_mode,
-        'nearby_stores': [store for store in nearby[:10]
-                          if store.get('code') in {row['code'] for row in results}],
+        'nearby_stores': sorted(
+            [store for store in nearby[:10] if store.get('code') in {row['code'] for row in results}],
+            key=lambda store: (store.get('distance_km') is None,
+                               store.get('distance_km') if store.get('distance_km') is not None else math.inf,
+                               normalize(store.get('name') or ''))),
         'results': results, 'stores_without_matches': stores_without_matches,
+        'search_radius_km': search_radius_km, 'expanded_search': expanded_search,
         'price_data_updated': updated_label, 'eur_to_inr': rate, 'exchange_rate_date': rate_date,
         'searched_at': datetime.now(timezone.utc).isoformat(),
         'input_tokens': translation.input_tokens, 'output_tokens': translation.output_tokens,
