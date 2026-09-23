@@ -27,10 +27,10 @@ source .venv/bin/activate
 pip install -r requirements.txt
 cp .env.example .env
 python manage.py migrate
-python manage.py runserver
+AUTH_REQUIRED=0 python manage.py runserver
 ```
 
-Open http://127.0.0.1:8000/. The example `.env` enables local development. For real Gemini extraction, set `GEMINI_API_KEY` in `.env`. Without a key, real scans use local OCR; they do **not** silently switch to fictional examples. The examples route is separately marked as demo content. Google login requires both OAuth credentials and a matching callback configuration at `/auth/google/callback/`. In local development, account authentication is optional when `AUTH_REQUIRED=0`.
+Open http://127.0.0.1:8000/. The example `.env` enables local development. For real Gemini extraction, set `GEMINI_API_KEY` in `.env`. Without a key, real scans use local OCR; they do **not** silently switch to fictional examples. The examples route is separately marked as demo content. Google login requires both OAuth credentials and a matching callback configuration at `/auth/google/callback/`. The quick-start command disables account authentication for that local process. Leave `AUTH_REQUIRED=1` for an account-enabled setup and configure Google OAuth (or a temporary development PIN) before opening the app.
 
 ```bash
 DJANGO_DEBUG=1 python manage.py check
