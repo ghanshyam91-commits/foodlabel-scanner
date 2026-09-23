@@ -1,139 +1,56 @@
-# FoodLens · foodlabel-scanner
+# FoodLens
 
-A standalone, mobile-first Django app for photographing Dutch food labels, translating visible text into English, and checking ingredient compatibility with vegan or vegetarian preferences.
+I started FoodLens to answer a fairly ordinary question while shopping in the Netherlands: *can I eat this, and where nearby can I buy it?* Packaging is often in Dutch, and the ingredient that matters can be buried in small print. The app reads a photo of the ingredients panel, translates what it can, and checks it against a vegetarian or vegan preference. It also has a separate supermarket search.
 
-**Repository:** `ghanshyam91-commits/foodlabel-scanner`. This is a standalone project, separate from DigiRobe and Eduvera. `main` holds the initial application; `stage` is the staging branch. No live AI key is included. Hosting and real photo scanning require separate configuration.
+This is a Django project and an evolving personal tool. A green result means the **visible ingredients** passed the current rules. It is not a manufacturer certification, an allergen assessment, or a guarantee about cross-contact.
 
-## What is included
+## What works today
 
-- Camera capture / photo upload, preview, metadata stripping and image validation.
-- English grocery search with Dutch query translation, a remembered city/location name,
-  nearby supermarket comparison, retailer logos, verified exact-product links where available,
-  and EUR/INR prices. Stores without a matching item are left out of the results.
-- Price comparisons use the reusable Checkjebon.nl catalogue; Gemini translates the query but
-  never supplies or invents a price. Nearby-chain distances come from OpenStreetMap.
-- A browser-local buy list can add comparison results, group them by supermarket, track quantity
-  and bought status, show per-store totals, and open directions while shopping.
-- Dutch-to-English text extraction and translation using a configurable Gemini model.
-- Separate deterministic dietary rules applied to the **original** ingredient text.
-- Vegan-compatible, vegetarian-not-vegan, non-vegetarian ingredient found, and uncertain results.
-- Vegetarian without eggs, vegetarian with eggs, and vegan preferences.
-- Ingredient explanations, original label transcription, full translation, separate “contains” / “may contain” sections.
-- Explicit per-photo AI consent. Browser-local saved text results, only on demand. Photos are not saved.
-- Clearly marked fictional examples that use the real rule engine, not the external AI service.
-- Private-beta passcode, CSRF protection, security headers and shared production rate/cost quotas.
-- Unit and integration tests, GitHub Actions, Docker and Railway configuration.
+- Take or upload a label photo. With a Gemini key, extraction and translation use Gemini; without one, the app uses local Tesseract OCR and a limited Dutch-to-English vocabulary. The latter requires the Tesseract executable and Dutch and English language data on the machine.
+- Apply deterministic ingredient rules *after* reading the label. Results distinguish vegan-compatible, vegetarian, non-vegetarian and uncertain cases; missing or unreadable ingredient text cannot produce a confident positive result.
+- Choose vegan, vegetarian with eggs, or vegetarian without eggs. Review the original text, translated ingredients and separate “contains” / “may contain” information.
+- Search nearby Dutch supermarkets, compare catalogue prices, and keep a browser-local shopping list. Prices are snapshots; store availability is not guaranteed.
+- Sign in with Google and unlock with a four-digit PIN when OAuth is configured. A temporary PIN path exists for development. The older private-beta access-code path is still present for deployments with account authentication disabled.
+- View monthly scan/token counts and an *estimate* of AI cost in INR. The currency conversion is a configured display rate.
 
-Not included: barcode lookup, recipe recognition, live text overlay on photos, multiple-photo merging, manufacturer certification verification, native iOS/Android binaries, or allergy-safety decisions.
+Photos are processed in memory and are not saved as files by the app. If Gemini is configured, an explicitly consented photo is sent to that provider. Saved shopping and scan text in the browser are separate from the server-side account and usage records. See [privacy](docs/PRIVACY.md) and [safety](docs/SAFETY.md).
 
-## Run locally
+## Try it locally
 
-Use Python 3.12 or a supported compatible Python version.
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-cp .env.example .env
-# For real photo scans, set GEMINI_API_KEY in .env.
-python manage.py runserver
-```
-
-Open `http://127.0.0.1:8000/`. Local development is enabled by the supplied `.env.example`. Without an API key, the UI explicitly displays preview mode and only fictional examples work. No real scan is silently replaced by a demo.
-
-The API key stays on the backend. Never put it in browser JavaScript, Git, an issue, or a chat message. Generate it using Google AI Studio and store it as a server environment variable. Provider availability, quota and billing must be checked for the actual account. The default model is `gemini-2.5-flash-lite`; `GEMINI_MODEL` is configurable.
-
-## Tests
-
-```bash
-DJANGO_DEBUG=1 python manage.py check
-DJANGO_DEBUG=1 python manage.py test scanner.tests --verbosity 2
-```
-
-Core tests can also run without Django installed, provided Pillow, Pydantic and HTTPX are installed:
-
-```bash
-python -m unittest scanner.tests.test_rules scanner.tests.test_images scanner.tests.test_provider -v
-```
-
-See `docs/VALIDATION.md` for what was actually executed when this package was prepared. Mocked provider tests do **not** prove live extraction accuracy. Before production, benchmark real Dutch labels, including curved, blurred, multilingual, compound-ingredient and allergen-warning cases; manually verify each output.
-
-## GitHub workflow
-
-This repository contains only FoodLens. Work on `stage` for staging changes; promote reviewed changes to `main`. Tests run on pushes and pull requests through GitHub Actions.
+Python 3.12 is a good starting point. For local OCR, install the Tesseract executable with `eng` and `nld` trained data; `pytesseract` alone is not enough.
 
 ```bash
 git clone https://github.com/ghanshyam91-commits/foodlabel-scanner.git
 cd foodlabel-scanner
-git switch stage
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
+python manage.py migrate
+python manage.py runserver
 ```
 
-Never commit `.env`, photos, access codes or provider API keys. The optional `scripts/publish.sh` is for creating a *different, fresh* private repository from a standalone copy; do not run it for this already-created repository.
+Open http://127.0.0.1:8000/. The example `.env` enables local development. For real Gemini extraction, set `GEMINI_API_KEY` in `.env`. Without a key, real scans use local OCR; they do **not** silently switch to fictional examples. The examples route is separately marked as demo content. Google login requires both OAuth credentials and a matching callback configuration at `/auth/google/callback/`. In local development, account authentication is optional when `AUTH_REQUIRED=0`.
 
-## Deployment
-
-The Dockerfile and `railway.json` are included, but **no deployment has been performed**.
-
-In Railway, create a separate project/service from the new repository, select `stage` for staging, add Redis, then configure:
-
-```text
-DJANGO_DEBUG=0
-DJANGO_SECRET_KEY=<random secret with at least 50 characters>
-DJANGO_ALLOWED_HOSTS=<exact Railway/custom hostname>
-DJANGO_CSRF_TRUSTED_ORIGINS=https://<exact hostname>
-GEMINI_API_KEY=<server-side API key>
-GEMINI_MODEL=gemini-3.1-flash-lite
-USD_TO_INR_RATE=90
-SCANNER_ACCESS_CODE=<private passcode with at least 16 characters>
-REDIS_URL=<Redis connection string>
-TRUST_PROXY_SSL=1
-SCANS_PER_MINUTE=5
-SCANS_PER_DAY=100
-SHOP_SEARCHES_PER_HOUR=20
-SHOP_SEARCHES_PER_DAY=500
+```bash
+DJANGO_DEBUG=1 python manage.py check
+DJANGO_DEBUG=1 python manage.py test scanner.tests
 ```
 
-Only set `TRUST_PROXY_SSL=1` behind a trusted HTTPS reverse proxy that removes spoofed forwarded headers. The `/health/` endpoint is exempt from HTTPS redirect for platform health checks. All normal production pages require HTTPS. Configure an ingress request-body limit of 9 MB and connection limits as additional protection.
+CI runs the tests in [GitHub Actions](.github/workflows/tests.yml). Provider tests use mocks, so they do not measure recognition accuracy on real packaging. [Validation notes](docs/VALIDATION.md) describe the earlier checks.
 
-Generate secrets locally with `python -c "import secrets; print(secrets.token_urlsafe(48))"`. Do not commit the output. Redis is required in production to keep daily paid-call quotas shared across workers/restarts. Cache failure blocks scanning. Failed AI requests count towards quota to prevent automatic retry storms. Quotas do not replace provider-side spend controls.
+## How it is put together
 
-Signed-cookie sessions hold only the private-beta access flag. There is no account or server-side scan-history database. Rotating `DJANGO_SECRET_KEY` invalidates all existing sessions. Passcode rotation alone does not revoke already-unlocked cookies; rotate the signing key too when immediate revocation is needed. Use proper user accounts before a broader public launch.
+`scanner/images.py` validates and prepares uploads. `scanner/provider.py` handles Gemini extraction; `scanner/local_ocr.py` handles the local fallback. `scanner/rules.py` makes the dietary decision from extracted text. `scanner/shop_search.py` combines catalogue products with nearby store locations. Django views enforce consent, authentication and quotas; Redis shares production quotas across workers. The UI is server-served HTML, CSS and JavaScript.
 
-## API
+A deliberate split here is between *reading* and *deciding*. An AI response or OCR transcript is evidence to inspect, not the dietary rule itself. This makes rule behavior testable, though a bad transcript can still lead to a bad answer.
 
-- `GET /api/config/`: non-secret configuration and access status.
-- `POST /api/unlock/`: form field `code`; CSRF required.
-- `POST /api/logout/`: clear access session; CSRF required.
-- `POST /api/scan/`: multipart `photo`, `preference`, `consent=yes`; CSRF required.
-- `POST /api/shop-search/`: form fields `query`, `preference`, and either `lat` + `lon` or
-  `location`; returns up to ten nearby-chain comparisons with source timestamps and EUR/INR prices.
-- `GET /api/shop-logo/{retailer}/`: bounded same-origin proxy for catalogue retailer marks, with a
-  local brand-colour fallback and a one-day public cache.
-- `GET /api/examples/{oats|chocolate|sweets|bread}/?preference=vegan`: clearly fictional examples.
-- `GET /health/`: process health, not AI readiness.
+## Deployment notes
 
-## Important limits
+The repository has a Dockerfile and Railway configuration. For a real deployment, set `DJANGO_DEBUG=0`, a unique 50+ character `DJANGO_SECRET_KEY`, exact allowed hosts and CSRF origins, `DATABASE_URL`, `REDIS_URL`, and the chosen authentication variables. Set `GEMINI_API_KEY` only on the server. Tesseract and language data must also be present if you expect keyless scans. Run `python manage.py check --deploy` and verify the login and photo flow on the deployed service.
 
-An AI reading error can still cause a wrong result. “Vegan-compatible ingredients” is not a certification and cannot verify manufacturing aids. Unknown or missing ingredient text blocks positive results. Do not use this app for medical or allergy-safety decisions. See `docs/SAFETY.md` and `docs/PRIVACY.md`.
+Do not copy the sample `.env` values into production. This is a prototype; catalogue coverage, OCR accuracy, auth configuration and provider costs need testing with real devices and labels before wider use.
 
-Supermarket prices are catalogue snapshots and may differ by branch, delivery area, loyalty offer,
-promotion, or time. Dietary matching and the colour-coded vegan-confidence percentage are
-deliberately conservative name-only heuristics; neither is a substitute for scanning the package.
-Browser coordinates are rounded before submission and are not stored. After a successful lookup,
-only the resolved location name is remembered in local browser storage until the user changes it.
-Some retailers do not publish durable product pages or reject direct visits; FoodLens only labels a
-destination “View exact product” for verified exact links, labels usable fallbacks as store searches,
-and shows “Exact page unavailable” instead of sending the user to a known blocked or misleading page.
+## Known edges
 
-## Reference documentation
-
-- Gemini models: https://ai.google.dev/gemini-api/docs/models
-- Gemini request and JSON schema contract: https://ai.google.dev/api/generate-content
-- Checkjebon open supermarket price data: https://github.com/supermarkt/checkjebon
-- OpenStreetMap copyright and attribution: https://www.openstreetmap.org/copyright
-- ECB euro foreign-exchange reference rates: https://www.ecb.europa.eu/stats/policy_and_exchange_rates/euro_reference_exchange_rates/
-- Django supported versions: https://www.djangoproject.com/download/
-- V-Label explanations: https://www.v-label.com/faqs/
-- Vegan Society on allergen versus vegan labelling: https://www.vegansociety.com/news/blog/TM2021/allergen-vs-vegan-labelling
-
-References inform the implementation; FoodLens is not affiliated with or certified by those organizations. The starter vocabulary requires independent review and expansion before public reliance.
+Curved or blurry labels, nested ingredients and incomplete translations remain hard. “May contain” is kept separate from ingredients because precautionary allergen wording does not by itself establish whether a product is vegan. Prices may differ by branch or promotion. Product links are labelled as exact pages only when the app can verify them. Barcode lookup and manufacturer certification are not implemented.
